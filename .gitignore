@@ -1,0 +1,9 @@
+# intellij files
+.idea
+*.iml
+
+# maven output directory
+target
+
+# mac specific
+.DS_Store

@@ -14,11 +14,13 @@ package moxy.impl;
 
 public class ThreadKiller {
     public static void killAndWait(Thread thread) {
-        thread.interrupt();
-        try {
-            thread.join();
-        } catch (InterruptedException e) {
+        if (thread != null) {
+            thread.interrupt();
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
 
+            }
         }
     }
 }

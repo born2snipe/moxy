@@ -35,6 +35,7 @@ public class ConnectionAcceptorThread extends Thread {
             serverSocket = new ServerSocket();
             serverSocket.setReuseAddress(true);
             serverSocket.bind(new InetSocketAddress(port));
+            listener.boundToLocalPort(port);
 
             while (!kill.get()) {
                 Socket socket = serverSocket.accept();
@@ -61,24 +62,30 @@ public class ConnectionAcceptorThread extends Thread {
 
     @Override
     public void interrupt() {
+        kill.set(true);
         close();
         super.interrupt();
     }
 
     private void close() {
         closing.set(true);
-        try {
-            serverSocket.close();
-        } catch (IOException e) {
 
+        if (serverSocket != null) {
+            try {
+                serverSocket.close();
+            } catch (IOException e) {
+
+            }
         }
     }
 
     private void pause() throws InterruptedException {
-        Thread.sleep(100);
+        Thread.sleep(10);
     }
 
     public interface Listener {
         void newConnection(Socket socket) throws IOException;
+
+        void boundToLocalPort(int port);
     }
 }

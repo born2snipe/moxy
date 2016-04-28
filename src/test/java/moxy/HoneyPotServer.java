@@ -21,6 +21,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HoneyPotServer {
@@ -30,6 +31,7 @@ public class HoneyPotServer {
     private ConnectionAcceptorThread connectionAcceptorThread;
     private ConsumeDataThread consumeDataThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
+    private CountDownLatch portBoundCountDown = new CountDownLatch(1);
 
     public HoneyPotServer(int port) {
         this.port = port;
@@ -38,6 +40,8 @@ public class HoneyPotServer {
     public void start() {
         connectionAcceptorThread = new ConnectionAcceptorThread(port, new NewConnectionListener());
         connectionAcceptorThread.start();
+
+        waitForPortToBeBound();
     }
 
     public void sendData(String dataToSend) {
@@ -63,9 +67,16 @@ public class HoneyPotServer {
 
     }
 
+    private void waitForPortToBeBound() {
+        try {
+            portBoundCountDown.await();
+        } catch (InterruptedException e) {
+
+        }
+    }
+
     public void assertSomeoneConnected() {
         RetryableAssertion assertion = new RetryableAssertion() {
-            @Override
             protected void assertion() {
                 Assert.assertTrue("NO connection was ever made to the server", connectionMade.get());
             }
@@ -73,18 +84,27 @@ public class HoneyPotServer {
         assertion.performAssertion();
     }
 
+    public void assertDataNotReceived(String expectedDataToNotBeFound) {
+        assertSomeoneConnected();
+        Assert.assertFalse("We have received the data [" + expectedDataToNotBeFound + "].",
+                dataReceived.contains(expectedDataToNotBeFound));
+    }
+
     private class NewConnectionListener implements ConnectionAcceptorThread.Listener {
 
         public void newConnection(Socket socket) {
             connectionMade.set(true);
             consumeDataThread = new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
-                @Override
                 public void newDataReceived(Socket socket, byte[] data) {
                     dataReceived.add(new String(data));
                 }
             });
             consumeDataThread.start();
             new SendOutgoingDataThread(socket).start();
+        }
+
+        public void boundToLocalPort(int port) {
+            portBoundCountDown.countDown();
         }
     }
 

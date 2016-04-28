@@ -18,10 +18,12 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static moxy.SocketUtil.attemptToBindTo;
+import static moxy.SocketUtil.connectToAndSend;
 
 public class MoxyServerTest {
     private MoxyServer moxyServer;
@@ -39,6 +41,31 @@ public class MoxyServerTest {
     public void tearDown() throws Exception {
         honeyPotServer.stop();
         moxyServer.stop();
+    }
+
+    @Test
+    public void shouldCloseAllTheServerSocketsWhenStopIsCalled() throws IOException, InterruptedException {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(8080).andConnectTo("localhost", 9090);
+        moxyServer.start();
+        moxyServer.stop();
+
+        attemptToBindTo(7878);
+        attemptToBindTo(8080);
+    }
+
+    @Test
+    public void shouldCloseTheServerSocketWhenStopIsCalled() throws IOException, InterruptedException {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+        moxyServer.stop();
+
+        attemptToBindTo(7878);
+    }
+
+    @Test
+    public void shouldNotBlowUpIfNoRoutesHaveBeenDefinedAtStartUpTime() {
+        moxyServer.start();
     }
 
     @Test
@@ -60,6 +87,41 @@ public class MoxyServerTest {
 
         honeyPotServer.assertSomeoneConnected();
         honeyPotServer.assertDataReceived("Hello World");
+    }
+
+    @Test
+    public void shouldAllowAddingMultipeRoutes() {
+        HoneyPotServer otherHoneyPot = new HoneyPotServer(9999);
+        otherHoneyPot.start();
+
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(8888).andConnectTo("localhost", 9999);
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+        connectToMoxyAndSend(8888, "Good bye");
+
+        honeyPotServer.assertDataReceived("Hello World");
+        honeyPotServer.assertDataNotReceived("Good bye");
+        otherHoneyPot.assertDataReceived("Good bye");
+        otherHoneyPot.assertDataNotReceived("Hello World");
+    }
+
+    @Test
+    public void shouldAllowStopListeningOnAPort() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+        moxyServer.stopListeningOn(7878);
+
+        attemptToBindTo(7878);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldBlowUpIfYouTryToStopListeningOnPortYouAreNotListeningOn() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        moxyServer.stopListeningOn(8080);
     }
 
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {
@@ -94,16 +156,6 @@ public class MoxyServerTest {
     }
 
     private void connectToMoxyAndSend(int portToConnectTo, String dataToSend) {
-        try (Socket socket = new Socket()) {
-            socket.setReuseAddress(true);
-            socket.setSoTimeout(1000);
-            socket.connect(new InetSocketAddress("localhost", portToConnectTo));
-            OutputStream output = socket.getOutputStream();
-            output.write(dataToSend.getBytes());
-            output.flush();
-            output.close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        connectToAndSend("localhost", portToConnectTo, dataToSend);
     }
 }

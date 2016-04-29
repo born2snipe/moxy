@@ -12,6 +12,8 @@
  */
 package moxy.impl;
 
+import moxy.Log;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -20,14 +22,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ConnectionAcceptorThread extends Thread {
     private final int port;
+    private final Log log;
     private final Listener listener;
     private ServerSocket serverSocket;
     private AtomicBoolean kill = new AtomicBoolean(false);
     private AtomicBoolean closing = new AtomicBoolean(false);
 
-    public ConnectionAcceptorThread(int port, Listener listener) {
+    public ConnectionAcceptorThread(int port, Log log, Listener listener) {
         this.port = port;
+        this.log = log;
         this.listener = listener;
+        setDaemon(true);
+        setName("AWAITING CONNECTIONS ON PORT: " + port);
     }
 
     public void run() {
@@ -41,6 +47,7 @@ public class ConnectionAcceptorThread extends Thread {
                 Socket socket = serverSocket.accept();
                 socket.setReuseAddress(true);
 
+                log.debug(getName() + " -- New Connection made: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
                 listener.newConnection(socket);
 
                 try {
@@ -52,7 +59,7 @@ public class ConnectionAcceptorThread extends Thread {
 
         } catch (IOException e) {
             if (!closing.get()) {
-                throw new RuntimeException(e);
+                log.error("A problem occurred on thread: " + getName(), e);
             }
         } finally {
             close();

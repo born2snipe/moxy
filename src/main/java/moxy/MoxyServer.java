@@ -1,11 +1,11 @@
 /**
  * Copyright to the original author or authors.
- * <p>
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at:
- * <p>
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ *
  * Unless required by applicable law or agreed to in writing, software distributed under the License is
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 public class MoxyServer {
+    private Log log = new SysOutLog();
     private HashMap<Integer, ConnectTo> listenOnPortToRemote = new HashMap<>();
 
     public RouteTo listenOn(int portToListenOn) {
@@ -35,9 +36,10 @@ public class MoxyServer {
     }
 
     public void start() {
+        log.debug("Starting...");
         final CountDownLatch countDownLatch = new CountDownLatch(listenOnPortToRemote.size());
         for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
-            ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(info.getKey(), new ConnectionAcceptorThread.Listener() {
+            ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(info.getKey(), log, new ConnectionAcceptorThread.Listener() {
                 public void newConnection(Socket socket) throws IOException {
                     Socket to = new Socket();
                     to.setReuseAddress(true);
@@ -54,32 +56,43 @@ public class MoxyServer {
         }
 
         try {
+            log.debug("Waiting for all ports to be bound...");
             // block until all routes have attempted to bind to their ports
             countDownLatch.await();
+            log.debug("All ports bound.");
         } catch (InterruptedException e) {
 
         }
     }
 
-    private void setupDataTransferringThreads(Socket from, Socket to) throws IOException {
-        new ReadAndSendDataThread(from, to).start();
-        new ReadAndSendDataThread(to, from).start();
+    public void setLog(Log log) {
+        this.log = log;
     }
 
     public void stop() {
-        for (ConnectTo connectTo : listenOnPortToRemote.values()) {
-            ThreadKiller.killAndWait(connectTo.connectionAcceptorThread);
+        if (listenOnPortToRemote.size() > 0) {
+            log.debug("Stopping all port listeners...");
+            for (ConnectTo connectTo : listenOnPortToRemote.values()) {
+                log.debug("Stop listening on port: " + connectTo.port);
+                ThreadKiller.killAndWait(connectTo.connectionAcceptorThread);
+            }
+            listenOnPortToRemote.clear();
         }
-        listenOnPortToRemote.clear();
     }
 
     public void stopListeningOn(int portNumber) throws IllegalArgumentException {
+        log.debug("Stop listening on port: " + portNumber);
         ConnectTo connectTo = listenOnPortToRemote.remove(portNumber);
         if (connectTo != null) {
             ThreadKiller.killAndWait(connectTo.connectionAcceptorThread);
         } else {
-            throw new IllegalArgumentException("Nothing is listening on port [" + portNumber + "]");
+            log.warn("Nothing is listening on port [" + portNumber + "]");
         }
+    }
+
+    private void setupDataTransferringThreads(Socket from, Socket to) throws IOException {
+        new ReadAndSendDataThread(from, to, log).start();
+        new ReadAndSendDataThread(to, from, log).start();
     }
 
     public interface RouteTo {

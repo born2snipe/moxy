@@ -12,6 +12,8 @@
  */
 package moxy.impl;
 
+import moxy.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -20,10 +22,13 @@ import java.net.Socket;
 public class ReadAndSendDataThread extends Thread {
     private final Socket input;
     private final Socket output;
+    private final Log log;
 
-    public ReadAndSendDataThread(Socket input, Socket output) {
+    public ReadAndSendDataThread(Socket input, Socket output, Log log) {
         this.input = input;
         this.output = output;
+        this.log = log;
+        setDaemon(true);
         setName("READ FROM: " + input + ", SEND TO: " + output);
     }
 
@@ -33,12 +38,15 @@ public class ReadAndSendDataThread extends Thread {
 
         try (InputStream input = this.input.getInputStream(); OutputStream output = this.output.getOutputStream()) {
             while (isStillConnected() && (length = input.read(buffer)) != -1) {
+                log.debug(getName() + " -- " + length + " bytes of data");
                 output.write(buffer, 0, length);
                 output.flush();
                 pause();
             }
         } catch (IOException e) {
-
+            log.error("An error occurred on thread: " + getName(), e);
+        } finally {
+            log.debug("Thread dieing: " + getName());
         }
     }
 

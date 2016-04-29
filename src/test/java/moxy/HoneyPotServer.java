@@ -24,21 +24,23 @@ import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static moxy.Log.Level.OFF;
+
 public class HoneyPotServer {
     private final int port;
     private final LinkedList<String> outgoingData = new LinkedList<>();
     private ArrayList<String> dataReceived = new ArrayList<>();
     private ConnectionAcceptorThread connectionAcceptorThread;
-    private ConsumeDataThread consumeDataThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
     private CountDownLatch portBoundCountDown = new CountDownLatch(1);
+    private SysOutLog log = new SysOutLog(OFF);
 
     public HoneyPotServer(int port) {
         this.port = port;
     }
 
     public void start() {
-        connectionAcceptorThread = new ConnectionAcceptorThread(port, new NewConnectionListener());
+        connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new NewConnectionListener());
         connectionAcceptorThread.start();
 
         waitForPortToBeBound();
@@ -94,7 +96,7 @@ public class HoneyPotServer {
 
         public void newConnection(Socket socket) {
             connectionMade.set(true);
-            consumeDataThread = new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
+            ConsumeDataThread consumeDataThread = new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
                 public void newDataReceived(Socket socket, byte[] data) {
                     dataReceived.add(new String(data));
                 }
@@ -128,7 +130,7 @@ public class HoneyPotServer {
                     pause();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("A problem occurred trying to send data", e);
             }
         }
 

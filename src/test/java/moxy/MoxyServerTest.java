@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static moxy.Log.Level.DEBUG;
 import static moxy.SocketUtil.attemptToBindTo;
 import static moxy.SocketUtil.connectToAndSend;
 
@@ -35,6 +36,7 @@ public class MoxyServerTest {
         honeyPotServer.start();
 
         moxyServer = new MoxyServer();
+        moxyServer.setLog(new SysOutLog(DEBUG));
     }
 
     @After
@@ -114,14 +116,6 @@ public class MoxyServerTest {
         moxyServer.stopListeningOn(7878);
 
         attemptToBindTo(7878);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldBlowUpIfYouTryToStopListeningOnPortYouAreNotListeningOn() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
-        moxyServer.start();
-
-        moxyServer.stopListeningOn(8080);
     }
 
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {

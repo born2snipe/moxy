@@ -1,11 +1,11 @@
 /**
  * Copyright to the original author or authors.
- * <p>
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at:
- * <p>
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ *
  * Unless required by applicable law or agreed to in writing, software distributed under the License is
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
@@ -19,6 +19,7 @@ import moxy.impl.ThreadKiller;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -72,7 +73,8 @@ public class MoxyServer {
                 Socket to = new Socket();
                 to.setReuseAddress(true);
                 to.connect(new InetSocketAddress(connectTo.host, connectTo.port));
-                setupDataTransferringThreads(socket, to);
+                connectTo.associateThread(new ReadAndSendDataThread(socket, to, log)).start();
+                connectTo.associateThread(new ReadAndSendDataThread(to, socket, log)).start();
             }
 
             public void boundToLocalPort(int port) {
@@ -80,8 +82,7 @@ public class MoxyServer {
             }
         });
 
-        connectionAcceptorThread.start();
-        connectTo.connectionAcceptorThread = connectionAcceptorThread;
+        connectTo.associateThread(connectionAcceptorThread).start();
 
         try {
             log.debug("Waiting for port [" + port + "] to bind...");
@@ -115,11 +116,6 @@ public class MoxyServer {
         }
     }
 
-    private void setupDataTransferringThreads(Socket from, Socket to) throws IOException {
-        new ReadAndSendDataThread(from, to, log).start();
-        new ReadAndSendDataThread(to, from, log).start();
-    }
-
     public interface RouteTo {
         void andConnectTo(String hostNameOrIpAddress, int portNumber);
     }
@@ -127,18 +123,25 @@ public class MoxyServer {
     private class ConnectTo {
         private String host;
         private int port;
-        private ConnectionAcceptorThread connectionAcceptorThread;
+        private ArrayList<Thread> threads = new ArrayList<>();
 
         public ConnectTo(String host, int port) {
             this.host = host;
             this.port = port;
         }
 
+        public Thread associateThread(Thread thread) {
+            threads.add(thread);
+            return thread;
+        }
+
         public void shutdown() {
-            if (connectionAcceptorThread != null) {
+            if (threads.size() > 0) {
                 log.debug("Stop listening on port: " + port);
-                ThreadKiller.killAndWait(connectionAcceptorThread);
-                connectionAcceptorThread = null;
+                for (Thread thread : threads) {
+                    ThreadKiller.killAndWait(thread);
+                }
+                threads.clear();
             }
         }
     }

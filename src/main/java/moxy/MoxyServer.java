@@ -130,6 +130,12 @@ public class MoxyServer {
         }
     }
 
+    public void removeListenerOn(int portNumber) {
+        log.debug("Removing listener on port: " + portNumber);
+        stopListeningOn(portNumber);
+        listenOnPortToRemote.remove(portNumber);
+    }
+
     public interface RouteTo {
         default void andConnectTo(String hostNameOrIpAddress, int portNumber) {
             andConnectTo(new InetSocketAddress(hostNameOrIpAddress, portNumber));

@@ -50,6 +50,25 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldBeAbleToRemoveARouteWhileTheServerIsRunning() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        moxyServer.removeListenerOn(7878);
+
+        attemptToBindTo(7878);
+    }
+
+    @Test
+    public void shouldBeAbleToRemoveARoute() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.removeListenerOn(7878);
+        moxyServer.start();
+
+        attemptToBindTo(7878);
+    }
+
+    @Test
     public void shouldSupportMultipleConnectionsToTheSameListeningPort() {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.start();

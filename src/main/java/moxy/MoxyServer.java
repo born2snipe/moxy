@@ -1,11 +1,11 @@
 /**
  * Copyright to the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at:
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
@@ -19,40 +19,47 @@ import moxy.impl.ThreadKiller;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MoxyServer {
     private Log log = new SysOutLog();
-    private HashMap<Integer, ConnectTo> listenOnPortToRemote = new HashMap<>();
+    private AtomicBoolean started = new AtomicBoolean(false);
+    private Map<Integer, ConnectTo> listenOnPortToRemote = Collections.synchronizedMap(new HashMap<>());
 
     public RouteTo listenOn(int portToListenOn) {
         return new RouteTo() {
             public void andConnectTo(String hostNameOrIpAddress, int portNumber) {
-                listenOnPortToRemote.put(portToListenOn, new ConnectTo(hostNameOrIpAddress, portNumber));
+                ConnectTo connectTo = new ConnectTo(hostNameOrIpAddress, portNumber);
+                listenOnPortToRemote.put(portToListenOn, connectTo);
+                if (started.get()) {
+                    CountDownLatch countDownLatch = new CountDownLatch(1);
+                    startListeningOn(portToListenOn, connectTo, countDownLatch);
+
+                    try {
+                        log.debug("Waiting for port to be bound...");
+                        countDownLatch.await();
+                    } catch (InterruptedException e) {
+
+                    }
+                }
             }
         };
     }
 
     public void start() {
+        if (started.get()) {
+            log.warn("Server already started");
+            return;
+        }
+
         log.debug("Starting...");
         final CountDownLatch countDownLatch = new CountDownLatch(listenOnPortToRemote.size());
         for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
-            ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(info.getKey(), log, new ConnectionAcceptorThread.Listener() {
-                public void newConnection(Socket socket) throws IOException {
-                    Socket to = new Socket();
-                    to.setReuseAddress(true);
-                    to.connect(new InetSocketAddress(info.getValue().host, info.getValue().port));
-                    setupDataTransferringThreads(socket, to);
-                }
-
-                public void boundToLocalPort(int port) {
-                    countDownLatch.countDown();
-                }
-            });
-            connectionAcceptorThread.start();
-            info.getValue().connectionAcceptorThread = connectionAcceptorThread;
+            startListeningOn(info.getKey(), info.getValue(), countDownLatch);
         }
 
         try {
@@ -63,6 +70,26 @@ public class MoxyServer {
         } catch (InterruptedException e) {
 
         }
+
+        started.set(true);
+    }
+
+    private void startListeningOn(Integer port, final ConnectTo connectTo, final CountDownLatch countDownLatch) {
+        log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.host + ":" + connectTo.port);
+        ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new ConnectionAcceptorThread.Listener() {
+            public void newConnection(Socket socket) throws IOException {
+                Socket to = new Socket();
+                to.setReuseAddress(true);
+                to.connect(new InetSocketAddress(connectTo.host, connectTo.port));
+                setupDataTransferringThreads(socket, to);
+            }
+
+            public void boundToLocalPort(int port) {
+                countDownLatch.countDown();
+            }
+        });
+        connectionAcceptorThread.start();
+        connectTo.connectionAcceptorThread = connectionAcceptorThread;
     }
 
     public void setLog(Log log) {
@@ -80,7 +107,7 @@ public class MoxyServer {
         }
     }
 
-    public void stopListeningOn(int portNumber) throws IllegalArgumentException {
+    public void stopListeningOn(int portNumber) {
         log.debug("Stop listening on port: " + portNumber);
         ConnectTo connectTo = listenOnPortToRemote.remove(portNumber);
         if (connectTo != null) {

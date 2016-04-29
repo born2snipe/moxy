@@ -118,6 +118,27 @@ public class MoxyServerTest {
         attemptToBindTo(7878);
     }
 
+    @Test
+    public void shouldAllowAddingListenersWhileTheServerIsRunning() {
+        moxyServer.start();
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+
+        connectToMoxyAndSend(7878, "Hello World");
+
+        honeyPotServer.assertDataReceived("Hello World");
+    }
+
+    @Test
+    public void shouldNotBlowUpIfTheServerHasAlreadyBeenStarted() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+
+        honeyPotServer.assertDataReceived("Hello World");
+    }
+
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);

@@ -20,11 +20,14 @@ import org.junit.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static moxy.Log.Level.DEBUG;
 import static moxy.SocketUtil.attemptToBindTo;
 import static moxy.SocketUtil.connectToAndSend;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 public class MoxyServerTest {
@@ -217,26 +220,23 @@ public class MoxyServerTest {
             socket.setSoTimeout(1000);
             socket.connect(new InetSocketAddress("localhost", portToConnectTo));
 
-            AtomicBoolean waitingForData = new AtomicBoolean(true);
+            final ArrayList<String> dataHolder = new ArrayList<>(1);
+            CountDownLatch waitForDataLatch = new CountDownLatch(1);
             new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
                 public void newDataReceived(Socket socket, byte[] data) {
-                    waitingForData.set(false);
-                    Assert.assertEquals(expectedData, new String(data));
+                    dataHolder.add(new String(data));
+                    waitForDataLatch.countDown();
                 }
             }).start();
 
-            long start = System.currentTimeMillis();
-            while (waitingForData.get()) {
-                try {
-                    Thread.sleep(10L);
-                } catch (InterruptedException e) {
-
-                }
-                if (System.currentTimeMillis() - start > 2000) {
-                    fail();
-                }
+            try {
+                waitForDataLatch.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                fail();
             }
 
+            assertFalse("We never received any data", dataHolder.isEmpty());
+            Assert.assertEquals(expectedData, dataHolder.get(0));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

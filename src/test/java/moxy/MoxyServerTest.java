@@ -50,6 +50,17 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldSupportMultipleConnectionsToTheSameListeningPort() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+        connectToMoxyAndSend(7878, "Hello Again");
+        honeyPotServer.assertDataReceived("Hello World");
+        honeyPotServer.assertDataReceived("Hello Again");
+    }
+
+    @Test
     public void shouldAllowProvidingAInetSocketAddressForTheRoute() throws IOException, InterruptedException {
         moxyServer.listenOn(7878).andConnectTo(new InetSocketAddress("localhost", 9090));
         moxyServer.start();

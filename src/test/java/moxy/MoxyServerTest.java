@@ -139,6 +139,12 @@ public class MoxyServerTest {
         honeyPotServer.assertDataReceived("Hello World");
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldBlowUpIfYouAttemptToListenOnTheSamePortMultipleTimes() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", 8080);
+    }
+
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);

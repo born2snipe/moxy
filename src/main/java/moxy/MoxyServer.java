@@ -105,21 +105,18 @@ public class MoxyServer {
     }
 
     public void stop() {
-        if (listenOnPortToRemote.size() > 0) {
-            log.debug("Stopping all port listeners...");
-            for (ConnectTo connectTo : listenOnPortToRemote.values()) {
-                log.debug("Stop listening on port: " + connectTo.port);
-                ThreadKiller.killAndWait(connectTo.connectionAcceptorThread);
-            }
-            listenOnPortToRemote.clear();
+        log.debug("Stopping all port listeners...");
+        for (ConnectTo connectTo : listenOnPortToRemote.values()) {
+            connectTo.shutdown();
         }
+        started.set(false);
     }
 
     public void stopListeningOn(int portNumber) {
         log.debug("Stop listening on port: " + portNumber);
-        ConnectTo connectTo = listenOnPortToRemote.remove(portNumber);
+        ConnectTo connectTo = listenOnPortToRemote.get(portNumber);
         if (connectTo != null) {
-            ThreadKiller.killAndWait(connectTo.connectionAcceptorThread);
+            connectTo.shutdown();
         } else {
             log.warn("Nothing is listening on port [" + portNumber + "]");
         }
@@ -142,6 +139,14 @@ public class MoxyServer {
         public ConnectTo(String host, int port) {
             this.host = host;
             this.port = port;
+        }
+
+        public void shutdown() {
+            if (connectionAcceptorThread != null) {
+                log.debug("Stop listening on port: " + port);
+                ThreadKiller.killAndWait(connectionAcceptorThread);
+                connectionAcceptorThread = null;
+            }
         }
     }
 }

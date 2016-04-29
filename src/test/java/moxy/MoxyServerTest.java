@@ -145,6 +145,18 @@ public class MoxyServerTest {
         moxyServer.listenOn(7878).andConnectTo("localhost", 8080);
     }
 
+    @Test
+    public void shouldBeAbleToRestartTheServerAndYourRoutesShouldBeAvailable() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        moxyServer.stop();
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+        honeyPotServer.assertDataReceived("Hello World");
+    }
+
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);

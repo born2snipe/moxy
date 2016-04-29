@@ -1,11 +1,11 @@
 /**
  * Copyright to the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at:
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
@@ -37,16 +37,9 @@ public class MoxyServer {
 
                 ConnectTo connectTo = new ConnectTo(hostNameOrIpAddress, portNumber);
                 listenOnPortToRemote.put(portToListenOn, connectTo);
+
                 if (started.get()) {
-                    CountDownLatch countDownLatch = new CountDownLatch(1);
-                    startListeningOn(portToListenOn, connectTo, countDownLatch);
-
-                    try {
-                        log.debug("Waiting for port to be bound...");
-                        countDownLatch.await();
-                    } catch (InterruptedException e) {
-
-                    }
+                    startListeningOn(portToListenOn, connectTo);
                 }
             }
         };
@@ -65,24 +58,14 @@ public class MoxyServer {
         }
 
         log.debug("Starting...");
-        final CountDownLatch countDownLatch = new CountDownLatch(listenOnPortToRemote.size());
         for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
-            startListeningOn(info.getKey(), info.getValue(), countDownLatch);
+            startListeningOn(info.getKey(), info.getValue());
         }
-
-        try {
-            log.debug("Waiting for all ports to be bound...");
-            // block until all routes have attempted to bind to their ports
-            countDownLatch.await();
-            log.debug("All ports bound.");
-        } catch (InterruptedException e) {
-
-        }
-
         started.set(true);
     }
 
-    private void startListeningOn(Integer port, final ConnectTo connectTo, final CountDownLatch countDownLatch) {
+    private void startListeningOn(Integer port, final ConnectTo connectTo) {
+        final CountDownLatch portBindingLatch = new CountDownLatch(1);
         log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.host + ":" + connectTo.port);
         ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new ConnectionAcceptorThread.Listener() {
             public void newConnection(Socket socket) throws IOException {
@@ -93,11 +76,21 @@ public class MoxyServer {
             }
 
             public void boundToLocalPort(int port) {
-                countDownLatch.countDown();
+                portBindingLatch.countDown();
             }
         });
+
         connectionAcceptorThread.start();
         connectTo.connectionAcceptorThread = connectionAcceptorThread;
+
+        try {
+            log.debug("Waiting for port [" + port + "] to bind...");
+            // wait for port to be bound
+            portBindingLatch.await();
+            log.debug("Port [" + port + "] bound!");
+        } catch (InterruptedException e) {
+
+        }
     }
 
     public void setLog(Log log) {

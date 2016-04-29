@@ -47,6 +47,15 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldAllowProvidingAInetSocketAddressForTheRoute() throws IOException, InterruptedException {
+        moxyServer.listenOn(7878).andConnectTo(new InetSocketAddress("localhost", 9090));
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+        honeyPotServer.assertDataReceived("Hello World");
+    }
+
+    @Test
     public void shouldCloseAllTheServerSocketsWhenStopIsCalled() throws IOException, InterruptedException {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.listenOn(8080).andConnectTo("localhost", 9090);
@@ -98,11 +107,11 @@ public class MoxyServerTest {
         otherHoneyPot.start();
 
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
-        moxyServer.listenOn(8888).andConnectTo("localhost", 9999);
+        moxyServer.listenOn(7979).andConnectTo("localhost", 9999);
         moxyServer.start();
 
         connectToMoxyAndSend(7878, "Hello World");
-        connectToMoxyAndSend(8888, "Good bye");
+        connectToMoxyAndSend(7979, "Good bye");
 
         honeyPotServer.assertDataReceived("Hello World");
         honeyPotServer.assertDataNotReceived("Good bye");

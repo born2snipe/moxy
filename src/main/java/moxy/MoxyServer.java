@@ -34,10 +34,10 @@ public class MoxyServer {
 
     public RouteTo listenOn(int portToListenOn) {
         return new RouteTo() {
-            public void andConnectTo(String hostNameOrIpAddress, int portNumber) {
+            public void andConnectTo(InetSocketAddress socketAddress) {
                 assertPortIsNotAlreadySetup(portToListenOn);
 
-                ConnectTo connectTo = new ConnectTo(hostNameOrIpAddress, portNumber);
+                ConnectTo connectTo = new ConnectTo(socketAddress);
                 listenOnPortToRemote.put(portToListenOn, connectTo);
 
                 if (started.get()) {
@@ -74,12 +74,12 @@ public class MoxyServer {
     private void startListeningOn(Integer port, final ConnectTo connectTo) {
         final ArrayList<RuntimeException> exceptionOccurred = new ArrayList<>(1);
         final CountDownLatch portBindingLatch = new CountDownLatch(1);
-        log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.host + ":" + connectTo.port);
+        log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.socketAddress);
         ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new ConnectionAcceptorThread.Listener() {
             public void newConnection(Socket socket) throws IOException {
                 Socket to = new Socket();
                 to.setReuseAddress(true);
-                to.connect(new InetSocketAddress(connectTo.host, connectTo.port));
+                to.connect(connectTo.socketAddress);
                 connectTo.associateThread(new ReadAndSendDataThread(socket, to, log)).start();
                 connectTo.associateThread(new ReadAndSendDataThread(to, socket, log)).start();
             }
@@ -116,9 +116,7 @@ public class MoxyServer {
 
     public void stop() {
         log.debug("Stopping all port listeners...");
-        for (ConnectTo connectTo : listenOnPortToRemote.values()) {
-            connectTo.shutdown();
-        }
+        listenOnPortToRemote.values().forEach(ConnectTo::shutdown);
         started.set(false);
     }
 
@@ -133,17 +131,19 @@ public class MoxyServer {
     }
 
     public interface RouteTo {
-        void andConnectTo(String hostNameOrIpAddress, int portNumber);
+        default void andConnectTo(String hostNameOrIpAddress, int portNumber) {
+            andConnectTo(new InetSocketAddress(hostNameOrIpAddress, portNumber));
+        }
+
+        void andConnectTo(InetSocketAddress socketAddress);
     }
 
     private class ConnectTo {
-        private String host;
-        private int port;
+        private final InetSocketAddress socketAddress;
         private ArrayList<Thread> threads = new ArrayList<>();
 
-        public ConnectTo(String host, int port) {
-            this.host = host;
-            this.port = port;
+        public ConnectTo(InetSocketAddress socketAddress) {
+            this.socketAddress = socketAddress;
         }
 
         public Thread associateThread(Thread thread) {
@@ -153,10 +153,7 @@ public class MoxyServer {
 
         public void shutdown() {
             if (threads.size() > 0) {
-                log.debug("Stop listening on port: " + port);
-                for (Thread thread : threads) {
-                    ThreadKiller.killAndWait(thread);
-                }
+                threads.forEach(ThreadKiller::killAndWait);
                 threads.clear();
             }
         }

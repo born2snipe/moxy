@@ -41,6 +41,8 @@ public class ReadAndSendDataThread extends Thread {
                 log.debug(getName() + " -- " + length + " bytes of data");
                 output.write(buffer, 0, length);
                 output.flush();
+
+                System.out.println(new String(buffer, 0, length));
                 pause();
             }
         } catch (IOException e) {

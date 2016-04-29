@@ -50,6 +50,19 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldAllowMultipleRoutesToTheSameServer() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7979).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        connectToMoxyAndSend(7878, "Hello World");
+        connectToMoxyAndSend(7979, "Good bye");
+
+        honeyPotServer.assertDataReceived("Hello World");
+        honeyPotServer.assertDataReceived("Good bye");
+    }
+
+    @Test
     public void shouldBeAbleToRemoveARouteWhileTheServerIsRunning() {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.start();

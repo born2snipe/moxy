@@ -17,11 +17,12 @@ import moxy.impl.ReadAndSendDataThread;
 import moxy.impl.ThreadKiller;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,7 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MoxyServer {
     private Log log = new SysOutLog();
     private AtomicBoolean started = new AtomicBoolean(false);
-    private Map<Integer, ConnectTo> listenOnPortToRemote = Collections.synchronizedMap(new HashMap<>());
+    private Map<Integer, ConnectTo> listenOnPortToRemote = Collections.synchronizedMap(new LinkedHashMap<>());
 
     public RouteTo listenOn(int portToListenOn) {
         return new RouteTo() {
@@ -59,13 +60,19 @@ public class MoxyServer {
         }
 
         log.debug("Starting...");
-        for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
-            startListeningOn(info.getKey(), info.getValue());
+        try {
+            for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
+                startListeningOn(info.getKey(), info.getValue());
+            }
+            started.set(true);
+        } catch (RuntimeException e) {
+            stop();
+            throw e;
         }
-        started.set(true);
     }
 
     private void startListeningOn(Integer port, final ConnectTo connectTo) {
+        final ArrayList<RuntimeException> exceptionOccurred = new ArrayList<>(1);
         final CountDownLatch portBindingLatch = new CountDownLatch(1);
         log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.host + ":" + connectTo.port);
         ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new ConnectionAcceptorThread.Listener() {
@@ -78,6 +85,13 @@ public class MoxyServer {
             }
 
             public void boundToLocalPort(int port) {
+                log.debug("Port [" + port + "] bound!");
+                portBindingLatch.countDown();
+            }
+
+            public void failedToBindToPort(int port, BindException exception) {
+                log.debug("Port [" + port + "] failed to bind!");
+                exceptionOccurred.add(new IllegalStateException("Failed to bind to port [" + port + "]", exception));
                 portBindingLatch.countDown();
             }
         });
@@ -86,9 +100,11 @@ public class MoxyServer {
 
         try {
             log.debug("Waiting for port [" + port + "] to bind...");
-            // wait for port to be bound
             portBindingLatch.await();
-            log.debug("Port [" + port + "] bound!");
+
+            for (RuntimeException exception : exceptionOccurred) {
+                throw exception;
+            }
         } catch (InterruptedException e) {
 
         }

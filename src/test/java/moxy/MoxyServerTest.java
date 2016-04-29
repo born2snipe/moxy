@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static moxy.Log.Level.DEBUG;
 import static moxy.SocketUtil.attemptToBindTo;
 import static moxy.SocketUtil.connectToAndSend;
+import static org.junit.Assert.fail;
 
 public class MoxyServerTest {
     private MoxyServer moxyServer;
@@ -157,6 +158,50 @@ public class MoxyServerTest {
         honeyPotServer.assertDataReceived("Hello World");
     }
 
+    @Test
+    public void shouldBlowUpIfAPortIsAlreadyInUse() {
+        moxyServer.listenOn(9090).andConnectTo("localhost", 8080);
+        try {
+            moxyServer.start();
+            fail();
+        } catch (IllegalStateException e) {
+
+        }
+    }
+
+    @Test
+    public void shouldCleanUpAnySuccessfulBindingsIfALaterBindingFails() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7979).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(9090).andConnectTo("localhost", 9090);
+
+        try {
+            moxyServer.start();
+            fail();
+        } catch (IllegalStateException e) {
+
+        }
+
+        attemptToBindTo(7878);
+        attemptToBindTo(7979);
+    }
+
+    @Test
+    public void shouldBlowUpIfAPortIsAlreadyInUseWhileTheServerIsAlreadyRunning() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.start();
+
+        try {
+            moxyServer.listenOn(9090).andConnectTo("localhost", 9090);
+            fail();
+        } catch (IllegalStateException e) {
+
+        }
+
+        connectToMoxyAndSend(7878, "Hello World");
+        honeyPotServer.assertDataReceived("Hello World");
+    }
+
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);
@@ -179,7 +224,7 @@ public class MoxyServerTest {
 
                 }
                 if (System.currentTimeMillis() - start > 2000) {
-                    Assert.fail();
+                    fail();
                 }
             }
 

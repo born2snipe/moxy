@@ -18,13 +18,14 @@ import org.junit.Assert;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.BindException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static moxy.Log.Level.OFF;
+import static moxy.Log.Level.DEBUG;
 
 public class HoneyPotServer {
     private final int port;
@@ -33,17 +34,19 @@ public class HoneyPotServer {
     private ConnectionAcceptorThread connectionAcceptorThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
     private CountDownLatch portBoundCountDown = new CountDownLatch(1);
-    private SysOutLog log = new SysOutLog(OFF);
+    private SysOutLog log = new SysOutLog(DEBUG);
 
     public HoneyPotServer(int port) {
         this.port = port;
     }
 
     public void start() {
+        log.debug("HONEY POT: starting...");
         connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new NewConnectionListener());
         connectionAcceptorThread.start();
 
         waitForPortToBeBound();
+        log.debug("HONEY POT: bound to port [" + port + "]");
     }
 
     public void sendData(String dataToSend) {
@@ -53,7 +56,9 @@ public class HoneyPotServer {
     }
 
     public void stop() {
+        log.debug("HONEY POT: stopping...");
         ThreadKiller.killAndWait(connectionAcceptorThread);
+        log.debug("HONEY POT: stopped");
     }
 
     public void assertDataReceived(String expectedReceivedData) {
@@ -107,6 +112,11 @@ public class HoneyPotServer {
 
         public void boundToLocalPort(int port) {
             portBoundCountDown.countDown();
+        }
+
+        public void failedToBindToPort(int port, BindException exception) {
+            portBoundCountDown.countDown();
+            exception.printStackTrace();
         }
     }
 

@@ -15,6 +15,7 @@ package moxy.impl;
 import moxy.Log;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -56,7 +57,8 @@ public class ConnectionAcceptorThread extends Thread {
                     kill.set(true);
                 }
             }
-
+        } catch (BindException e) {
+            listener.failedToBindToPort(port, e);
         } catch (IOException e) {
             if (!closing.get()) {
                 log.error("A problem occurred on thread: " + getName(), e);
@@ -94,5 +96,7 @@ public class ConnectionAcceptorThread extends Thread {
         void newConnection(Socket socket) throws IOException;
 
         void boundToLocalPort(int port);
+
+        void failedToBindToPort(int port, BindException exception);
     }
 }

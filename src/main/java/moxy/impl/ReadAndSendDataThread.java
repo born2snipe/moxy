@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class ReadAndSendDataThread extends Thread {
     private final Socket input;
@@ -41,9 +42,15 @@ public class ReadAndSendDataThread extends Thread {
                 log.debug(getName() + " -- " + length + " bytes of data");
                 output.write(buffer, 0, length);
                 output.flush();
-
-                System.out.println(new String(buffer, 0, length));
                 pause();
+            }
+        } catch (SocketException e) {
+            if (this.input.isClosed()) {
+                log.debug("Connection was closed: " + input);
+            } else if (this.output.isClosed()) {
+                log.debug("Connection was closed: " + output);
+            } else {
+                log.error("An error occurred on thread: " + getName(), e);
             }
         } catch (IOException e) {
             log.error("An error occurred on thread: " + getName(), e);

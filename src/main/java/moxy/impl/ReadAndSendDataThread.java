@@ -46,9 +46,9 @@ public class ReadAndSendDataThread extends Thread {
             }
         } catch (SocketException e) {
             if (this.input.isClosed()) {
-                log.debug("Connection was closed: " + input);
+                log.debug("READ FROM: Connection was closed: " + input);
             } else if (this.output.isClosed()) {
-                log.debug("Connection was closed: " + output);
+                log.debug("SEND TO: Connection was closed: " + output);
             } else {
                 log.error("An error occurred on thread: " + getName(), e);
             }

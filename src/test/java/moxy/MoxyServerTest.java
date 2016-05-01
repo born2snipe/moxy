@@ -15,6 +15,7 @@ package moxy;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -26,21 +27,25 @@ import java.util.concurrent.TimeUnit;
 
 import static moxy.Log.Level.DEBUG;
 import static moxy.SocketUtil.attemptToBindTo;
-import static moxy.SocketUtil.connectToAndSend;
+import static moxy.SocketUtil.ensurePortIsInUse;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 public class MoxyServerTest {
     private MoxyServer moxyServer;
     private HoneyPotServer honeyPotServer;
+    private SysOutLog log;
 
     @Before
     public void setUp() throws Exception {
+        log = new SysOutLog(DEBUG);
+
         honeyPotServer = new HoneyPotServer(9090);
+        honeyPotServer.setLog(log);
         honeyPotServer.start();
 
         moxyServer = new MoxyServer();
-        moxyServer.setLog(new SysOutLog(DEBUG));
+        moxyServer.setLog(log);
     }
 
     @After
@@ -50,13 +55,46 @@ public class MoxyServerTest {
     }
 
     @Test
+    @Ignore
+    public void shouldBeAbleToConnectToTheRouteServerOnceItBecomesAvailable() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9999);
+        moxyServer.start();
+
+        connectToAndSend(7878, "Hello World");
+
+        HoneyPotServer honeyPotServer = new HoneyPotServer(9999);
+        honeyPotServer.setLog(log);
+        honeyPotServer.start();
+
+        connectToAndSend(7878, "Hello Again");
+
+        try {
+            honeyPotServer.assertSomeoneConnected();
+            honeyPotServer.assertDataNotReceived("Hello World");
+            honeyPotServer.assertDataReceived("Hello Again");
+        } finally {
+            honeyPotServer.stop();
+        }
+    }
+
+    @Test
+    public void shouldNotKillTheListenerThreadWhenTheRouteServerIsUnavailable() {
+        moxyServer.listenOn(7878).andConnectTo("localhost", 9999);
+        moxyServer.start();
+
+        connectToAndSend(7878, "Hello World");
+
+        ensurePortIsInUse(7878);
+    }
+
+    @Test
     public void shouldAllowMultipleRoutesToTheSameServer() {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.listenOn(7979).andConnectTo("localhost", 9090);
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
-        connectToMoxyAndSend(7979, "Good bye");
+        connectToAndSend(7878, "Hello World");
+        connectToAndSend(7979, "Good bye");
 
         honeyPotServer.assertDataReceived("Hello World");
         honeyPotServer.assertDataReceived("Good bye");
@@ -86,8 +124,8 @@ public class MoxyServerTest {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
-        connectToMoxyAndSend(7878, "Hello Again");
+        connectToAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello Again");
         honeyPotServer.assertDataReceived("Hello World");
         honeyPotServer.assertDataReceived("Hello Again");
     }
@@ -97,7 +135,7 @@ public class MoxyServerTest {
         moxyServer.listenOn(7878).andConnectTo(new InetSocketAddress("localhost", 9090));
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
         honeyPotServer.assertDataReceived("Hello World");
     }
 
@@ -141,14 +179,14 @@ public class MoxyServerTest {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
 
         honeyPotServer.assertSomeoneConnected();
         honeyPotServer.assertDataReceived("Hello World");
     }
 
     @Test
-    public void shouldAllowAddingMultipeRoutes() {
+    public void shouldAllowAddingMultipleRoutes() {
         HoneyPotServer otherHoneyPot = new HoneyPotServer(9999);
         otherHoneyPot.start();
 
@@ -156,8 +194,8 @@ public class MoxyServerTest {
         moxyServer.listenOn(7979).andConnectTo("localhost", 9999);
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
-        connectToMoxyAndSend(7979, "Good bye");
+        connectToAndSend(7878, "Hello World");
+        connectToAndSend(7979, "Good bye");
 
         honeyPotServer.assertDataReceived("Hello World");
         honeyPotServer.assertDataNotReceived("Good bye");
@@ -179,7 +217,7 @@ public class MoxyServerTest {
         moxyServer.start();
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
 
         honeyPotServer.assertDataReceived("Hello World");
     }
@@ -190,7 +228,7 @@ public class MoxyServerTest {
         moxyServer.start();
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
 
         honeyPotServer.assertDataReceived("Hello World");
     }
@@ -209,7 +247,7 @@ public class MoxyServerTest {
         moxyServer.stop();
         moxyServer.start();
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
         honeyPotServer.assertDataReceived("Hello World");
     }
 
@@ -253,7 +291,7 @@ public class MoxyServerTest {
 
         }
 
-        connectToMoxyAndSend(7878, "Hello World");
+        connectToAndSend(7878, "Hello World");
         honeyPotServer.assertDataReceived("Hello World");
     }
 
@@ -285,7 +323,7 @@ public class MoxyServerTest {
         }
     }
 
-    private void connectToMoxyAndSend(int portToConnectTo, String dataToSend) {
-        connectToAndSend("localhost", portToConnectTo, dataToSend);
+    private void connectToAndSend(int portToConnectTo, String dataToSend) {
+        SocketUtil.connectToAndSend("localhost", portToConnectTo, dataToSend);
     }
 }

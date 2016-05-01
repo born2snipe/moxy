@@ -13,6 +13,7 @@
 package moxy;
 
 import moxy.impl.ConnectionAcceptorThread;
+import moxy.impl.ExceptionHolder;
 import moxy.impl.ReadAndSendDataThread;
 import moxy.impl.ThreadKiller;
 
@@ -72,16 +73,19 @@ public class MoxyServer {
     }
 
     private void startListeningOn(Integer port, final ConnectTo connectTo) {
-        final ArrayList<RuntimeException> exceptionOccurred = new ArrayList<>(1);
+        final ExceptionHolder exceptionHolder = new ExceptionHolder();
         final CountDownLatch portBindingLatch = new CountDownLatch(1);
         log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.socketAddress);
-        ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new ConnectionAcceptorThread.Listener() {
-            public void newConnection(Socket socket) throws IOException {
-                Socket to = new Socket();
-                to.setReuseAddress(true);
-                to.connect(connectTo.socketAddress);
-                connectTo.associateThread(new ReadAndSendDataThread(socket, to, log)).start();
-                connectTo.associateThread(new ReadAndSendDataThread(to, socket, log)).start();
+        ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread("MOXY", port, log, new ConnectionAcceptorThread.Listener() {
+            public void newConnection(Socket listener) throws IOException {
+                try {
+                    Socket routeTo = new Socket();
+                    routeTo.setReuseAddress(true);
+                    routeTo.connect(connectTo.socketAddress);
+                    connectTo.startReadingAndWriting(listener, routeTo);
+                } catch (IOException e) {
+                    log.error("Failed to connect to route server: " + connectTo.socketAddress, e);
+                }
             }
 
             public void boundToLocalPort(int port) {
@@ -91,7 +95,7 @@ public class MoxyServer {
 
             public void failedToBindToPort(int port, BindException exception) {
                 log.debug("Port [" + port + "] failed to bind!");
-                exceptionOccurred.add(new IllegalStateException("Failed to bind to port [" + port + "]", exception));
+                exceptionHolder.holdOnTo(new IllegalStateException("Failed to bind to port [" + port + "]", exception));
                 portBindingLatch.countDown();
             }
         });
@@ -102,12 +106,11 @@ public class MoxyServer {
             log.debug("Waiting for port [" + port + "] to bind...");
             portBindingLatch.await();
 
-            for (RuntimeException exception : exceptionOccurred) {
-                throw exception;
-            }
         } catch (InterruptedException e) {
 
         }
+
+        exceptionHolder.reThrowAsNeeded();
     }
 
     public void setLog(Log log) {
@@ -147,6 +150,8 @@ public class MoxyServer {
     private class ConnectTo {
         private final InetSocketAddress socketAddress;
         private ArrayList<Thread> threads = new ArrayList<>();
+        // todo - need to find a way to get these to auto cleanup on death
+        private ArrayList<RelayInfo> relayInfos = new ArrayList<>();
 
         public ConnectTo(InetSocketAddress socketAddress) {
             this.socketAddress = socketAddress;
@@ -161,6 +166,44 @@ public class MoxyServer {
             if (threads.size() > 0) {
                 threads.forEach(ThreadKiller::killAndWait);
                 threads.clear();
+            }
+
+            for (RelayInfo relayInfo : relayInfos) {
+                relayInfo.stopRelaying();
+            }
+            relayInfos.clear();
+        }
+
+        public void startReadingAndWriting(Socket listener, Socket routeTo) {
+            RelayInfo relayInfo = new RelayInfo(listener, routeTo);
+            relayInfo.startRelaying();
+            relayInfos.add(relayInfo);
+        }
+    }
+
+    private class RelayInfo {
+        private Socket listener;
+        private Socket routeTo;
+        private ArrayList<Thread> threads = new ArrayList<>();
+
+        public RelayInfo(Socket listener, Socket routeTo) {
+            this.listener = listener;
+            this.routeTo = routeTo;
+        }
+
+        public void startRelaying() {
+            ReadAndSendDataThread listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo, log);
+            listenerToRouteTo.start();
+            ReadAndSendDataThread routeToToListener = new ReadAndSendDataThread(routeTo, listener, log);
+            routeToToListener.start();
+
+            threads.add(listenerToRouteTo);
+            threads.add(routeToToListener);
+        }
+
+        public void stopRelaying() {
+            for (Thread thread : threads) {
+                ThreadKiller.killAndWait(thread);
             }
         }
     }

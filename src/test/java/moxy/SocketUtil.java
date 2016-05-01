@@ -14,9 +14,13 @@ package moxy;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class SocketUtil {
     public static void connectToAndSend(String ip, int portToConnectTo, String dataToSend) {
@@ -30,6 +34,15 @@ public class SocketUtil {
             output.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static void ensurePortIsInUse(int port) {
+        try {
+            attemptToBindTo(port);
+            fail();
+        } catch (Exception e) {
+            assertTrue(e.getCause() instanceof BindException);
         }
     }
 

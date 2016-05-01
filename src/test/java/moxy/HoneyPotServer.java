@@ -13,6 +13,7 @@
 package moxy;
 
 import moxy.impl.ConnectionAcceptorThread;
+import moxy.impl.ExceptionHolder;
 import moxy.impl.ThreadKiller;
 import org.junit.Assert;
 
@@ -30,11 +31,12 @@ import static moxy.Log.Level.DEBUG;
 public class HoneyPotServer {
     private final int port;
     private final LinkedList<String> outgoingData = new LinkedList<>();
-    private ArrayList<String> dataReceived = new ArrayList<>();
+    private final ArrayList<String> dataReceived = new ArrayList<>();
     private ConnectionAcceptorThread connectionAcceptorThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
     private CountDownLatch portBoundCountDown = new CountDownLatch(1);
-    private SysOutLog log = new SysOutLog(DEBUG);
+    private Log log = new SysOutLog(DEBUG);
+    private ExceptionHolder bindingException = new ExceptionHolder();
 
     public HoneyPotServer(int port) {
         this.port = port;
@@ -42,10 +44,12 @@ public class HoneyPotServer {
 
     public void start() {
         log.debug("HONEY POT: starting...");
-        connectionAcceptorThread = new ConnectionAcceptorThread(port, log, new NewConnectionListener());
+        connectionAcceptorThread = new ConnectionAcceptorThread("HONEY POT", port, log, new NewConnectionListener());
         connectionAcceptorThread.start();
 
+        log.debug("HONEY POST: Waiting for port to bind...");
         waitForPortToBeBound();
+        bindingException.reThrowAsNeeded();
         log.debug("HONEY POT: bound to port [" + port + "]");
     }
 
@@ -61,13 +65,19 @@ public class HoneyPotServer {
         log.debug("HONEY POT: stopped");
     }
 
+    public void setLog(Log log) {
+        this.log = log;
+    }
+
     public void assertDataReceived(String expectedReceivedData) {
         RetryableAssertion assertion = new RetryableAssertion() {
             @Override
             protected void assertion() {
-                Assert.assertTrue("We have NOT received the data [" + expectedReceivedData + "]." +
-                                "\n\tWe have received: " + dataReceived,
-                        dataReceived.contains(expectedReceivedData));
+                synchronized (dataReceived) {
+                    Assert.assertTrue("We have NOT received the data [" + expectedReceivedData + "]." +
+                                    "\n\tWe have received: " + dataReceived,
+                            dataReceived.contains(expectedReceivedData));
+                }
             }
         };
         assertion.performAssertion();
@@ -93,8 +103,10 @@ public class HoneyPotServer {
 
     public void assertDataNotReceived(String expectedDataToNotBeFound) {
         assertSomeoneConnected();
-        Assert.assertFalse("We have received the data [" + expectedDataToNotBeFound + "].",
-                dataReceived.contains(expectedDataToNotBeFound));
+        synchronized (dataReceived) {
+            Assert.assertFalse("We have received the data [" + expectedDataToNotBeFound + "].",
+                    dataReceived.contains(expectedDataToNotBeFound));
+        }
     }
 
     private class NewConnectionListener implements ConnectionAcceptorThread.Listener {
@@ -103,7 +115,9 @@ public class HoneyPotServer {
             connectionMade.set(true);
             ConsumeDataThread consumeDataThread = new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
                 public void newDataReceived(Socket socket, byte[] data) {
-                    dataReceived.add(new String(data));
+                    synchronized (dataReceived) {
+                        dataReceived.add(new String(data));
+                    }
                 }
             });
             consumeDataThread.start();
@@ -115,8 +129,8 @@ public class HoneyPotServer {
         }
 
         public void failedToBindToPort(int port, BindException exception) {
+            bindingException.holdOnTo(exception);
             portBoundCountDown.countDown();
-            exception.printStackTrace();
         }
     }
 
@@ -125,6 +139,7 @@ public class HoneyPotServer {
 
         public SendOutgoingDataThread(Socket socket) {
             this.socket = socket;
+            setDaemon(true);
         }
 
         public void run() {

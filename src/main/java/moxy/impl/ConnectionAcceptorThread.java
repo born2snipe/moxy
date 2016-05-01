@@ -29,12 +29,12 @@ public class ConnectionAcceptorThread extends Thread {
     private AtomicBoolean kill = new AtomicBoolean(false);
     private AtomicBoolean closing = new AtomicBoolean(false);
 
-    public ConnectionAcceptorThread(int port, Log log, Listener listener) {
+    public ConnectionAcceptorThread(String additionalName, int port, Log log, Listener listener) {
         this.port = port;
         this.log = log;
         this.listener = listener;
         setDaemon(true);
-        setName("AWAITING CONNECTIONS ON PORT: " + port);
+        setName(additionalName + ": AWAITING CONNECTIONS ON PORT: " + port);
     }
 
     public void run() {
@@ -71,12 +71,12 @@ public class ConnectionAcceptorThread extends Thread {
 
     @Override
     public void interrupt() {
-        kill.set(true);
         close();
         super.interrupt();
     }
 
     private void close() {
+        kill.set(true);
         closing.set(true);
 
         if (serverSocket != null) {

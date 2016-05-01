@@ -7,3 +7,5 @@ target
 
 # mac specific
 .DS_Store
+
+activemq-data

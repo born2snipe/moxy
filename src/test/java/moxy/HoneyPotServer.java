@@ -47,7 +47,7 @@ public class HoneyPotServer {
         connectionAcceptorThread = new ConnectionAcceptorThread("HONEY POT", port, log, new NewConnectionListener());
         connectionAcceptorThread.start();
 
-        log.debug("HONEY POST: Waiting for port to bind...");
+        log.debug("HONEY POT: Waiting for port to bind...");
         waitForPortToBeBound();
         bindingException.reThrowAsNeeded();
         log.debug("HONEY POT: bound to port [" + port + "]");

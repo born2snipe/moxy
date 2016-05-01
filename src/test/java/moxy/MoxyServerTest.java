@@ -15,13 +15,13 @@ package moxy;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -35,14 +35,14 @@ public class MoxyServerTest {
     private MoxyServer moxyServer;
     private HoneyPotServer honeyPotServer;
     private SysOutLog log;
+    private HashSet<HoneyPotServer> honeyPots = new HashSet<>();
 
     @Before
     public void setUp() throws Exception {
         log = new SysOutLog(DEBUG);
 
-        honeyPotServer = new HoneyPotServer(9090);
-        honeyPotServer.setLog(log);
-        honeyPotServer.start();
+        honeyPotServer = startNewHoneyPot(9090);
+
 
         moxyServer = new MoxyServer();
         moxyServer.setLog(log);
@@ -50,31 +50,24 @@ public class MoxyServerTest {
 
     @After
     public void tearDown() throws Exception {
-        honeyPotServer.stop();
+        honeyPots.forEach(HoneyPotServer::stop);
         moxyServer.stop();
     }
 
     @Test
-    @Ignore
     public void shouldBeAbleToConnectToTheRouteServerOnceItBecomesAvailable() {
         moxyServer.listenOn(7878).andConnectTo("localhost", 9999);
         moxyServer.start();
 
         connectToAndSend(7878, "Hello World");
 
-        HoneyPotServer honeyPotServer = new HoneyPotServer(9999);
-        honeyPotServer.setLog(log);
-        honeyPotServer.start();
+        HoneyPotServer honeyPotServer = startNewHoneyPot(9999);
 
         connectToAndSend(7878, "Hello Again");
 
-        try {
-            honeyPotServer.assertSomeoneConnected();
-            honeyPotServer.assertDataNotReceived("Hello World");
-            honeyPotServer.assertDataReceived("Hello Again");
-        } finally {
-            honeyPotServer.stop();
-        }
+        honeyPotServer.assertSomeoneConnected();
+        honeyPotServer.assertDataNotReceived("Hello World");
+        honeyPotServer.assertDataReceived("Hello Again");
     }
 
     @Test
@@ -187,8 +180,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowAddingMultipleRoutes() {
-        HoneyPotServer otherHoneyPot = new HoneyPotServer(9999);
-        otherHoneyPot.start();
+        HoneyPotServer otherHoneyPot = startNewHoneyPot(9999);
 
         moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
         moxyServer.listenOn(7979).andConnectTo("localhost", 9999);
@@ -325,5 +317,13 @@ public class MoxyServerTest {
 
     private void connectToAndSend(int portToConnectTo, String dataToSend) {
         SocketUtil.connectToAndSend("localhost", portToConnectTo, dataToSend);
+    }
+
+    private HoneyPotServer startNewHoneyPot(int port) {
+        HoneyPotServer honeyPotServer = new HoneyPotServer(port);
+        honeyPotServer.setLog(log);
+        honeyPotServer.start();
+        honeyPots.add(honeyPotServer);
+        return honeyPotServer;
     }
 }

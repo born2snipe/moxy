@@ -32,6 +32,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 public class MoxyServerTest {
+    private static final int HONEY_POT_PORT = 19090;
     private MoxyServer moxyServer;
     private HoneyPotServer honeyPotServer;
     private SysOutLog log;
@@ -41,7 +42,7 @@ public class MoxyServerTest {
     public void setUp() throws Exception {
         log = new SysOutLog(DEBUG);
 
-        honeyPotServer = startNewHoneyPot(9090);
+        honeyPotServer = startNewHoneyPot(HONEY_POT_PORT);
 
 
         moxyServer = new MoxyServer();
@@ -52,6 +53,24 @@ public class MoxyServerTest {
     public void tearDown() throws Exception {
         honeyPots.forEach(HoneyPotServer::stop);
         moxyServer.stop();
+    }
+
+    @Test
+    public void shouldKillRemoteConnectionsOnShutdownEvenIfTheyAreStillWritingData() throws InterruptedException {
+        moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.start();
+
+        AlwaysStreamingDataThread alwaysStreamingThread = new AlwaysStreamingDataThread("localhost", 9999);
+        alwaysStreamingThread.start();
+
+        waitALittleBit();
+
+        moxyServer.stop();
+        alwaysStreamingThread.join();
+
+        honeyPotServer.assertSomeoneConnected();
+        honeyPotServer.assertSomeDataWasReceived();
+        assertFalse(alwaysStreamingThread.isAlive());
     }
 
     @Test
@@ -82,8 +101,8 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowMultipleRoutesToTheSameServer() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
-        moxyServer.listenOn(7979).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.listenOn(7979).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         connectToAndSend(7878, "Hello World");
@@ -95,7 +114,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldBeAbleToRemoveARouteWhileTheServerIsRunning() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         moxyServer.removeListenerOn(7878);
@@ -105,7 +124,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldBeAbleToRemoveARoute() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.removeListenerOn(7878);
         moxyServer.start();
 
@@ -114,7 +133,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldSupportMultipleConnectionsToTheSameListeningPort() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         connectToAndSend(7878, "Hello World");
@@ -125,7 +144,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowProvidingAInetSocketAddressForTheRoute() throws IOException, InterruptedException {
-        moxyServer.listenOn(7878).andConnectTo(new InetSocketAddress("localhost", 9090));
+        moxyServer.listenOn(7878).andConnectTo(new InetSocketAddress("localhost", HONEY_POT_PORT));
         moxyServer.start();
 
         connectToAndSend(7878, "Hello World");
@@ -134,8 +153,8 @@ public class MoxyServerTest {
 
     @Test
     public void shouldCloseAllTheServerSocketsWhenStopIsCalled() throws IOException, InterruptedException {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
-        moxyServer.listenOn(8080).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.listenOn(8080).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
         moxyServer.stop();
 
@@ -145,7 +164,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldCloseTheServerSocketWhenStopIsCalled() throws IOException, InterruptedException {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
         moxyServer.stop();
 
@@ -159,7 +178,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowSettingUpARouteAndConnectingToTheRemoteServerAndReceivingData() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         honeyPotServer.sendData("From Remote");
@@ -169,7 +188,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowSettingUpARouteAndConnectingToTheRemoteServerAndSendingData() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         connectToAndSend(7878, "Hello World");
@@ -182,7 +201,7 @@ public class MoxyServerTest {
     public void shouldAllowAddingMultipleRoutes() {
         HoneyPotServer otherHoneyPot = startNewHoneyPot(9999);
 
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.listenOn(7979).andConnectTo("localhost", 9999);
         moxyServer.start();
 
@@ -197,7 +216,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldAllowStopListeningOnAPort() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
         moxyServer.stopListeningOn(7878);
 
@@ -207,7 +226,7 @@ public class MoxyServerTest {
     @Test
     public void shouldAllowAddingListenersWhileTheServerIsRunning() {
         moxyServer.start();
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
 
         connectToAndSend(7878, "Hello World");
 
@@ -216,7 +235,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldNotBlowUpIfTheServerHasAlreadyBeenStarted() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
         moxyServer.start();
 
@@ -227,13 +246,13 @@ public class MoxyServerTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldBlowUpIfYouAttemptToListenOnTheSamePortMultipleTimes() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.listenOn(7878).andConnectTo("localhost", 8080);
     }
 
     @Test
     public void shouldBeAbleToRestartTheServerAndYourRoutesShouldBeAvailable() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         moxyServer.stop();
@@ -245,7 +264,7 @@ public class MoxyServerTest {
 
     @Test
     public void shouldBlowUpIfAPortIsAlreadyInUse() {
-        moxyServer.listenOn(9090).andConnectTo("localhost", 8080);
+        moxyServer.listenOn(HONEY_POT_PORT).andConnectTo("localhost", 8080);
         try {
             moxyServer.start();
             fail();
@@ -256,9 +275,9 @@ public class MoxyServerTest {
 
     @Test
     public void shouldCleanUpAnySuccessfulBindingsIfALaterBindingFails() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
-        moxyServer.listenOn(7979).andConnectTo("localhost", 9090);
-        moxyServer.listenOn(9090).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.listenOn(7979).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.listenOn(HONEY_POT_PORT).andConnectTo("localhost", HONEY_POT_PORT);
 
         try {
             moxyServer.start();
@@ -273,11 +292,11 @@ public class MoxyServerTest {
 
     @Test
     public void shouldBlowUpIfAPortIsAlreadyInUseWhileTheServerIsAlreadyRunning() {
-        moxyServer.listenOn(7878).andConnectTo("localhost", 9090);
+        moxyServer.listenOn(7878).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
 
         try {
-            moxyServer.listenOn(9090).andConnectTo("localhost", 9090);
+            moxyServer.listenOn(HONEY_POT_PORT).andConnectTo("localhost", HONEY_POT_PORT);
             fail();
         } catch (IllegalStateException e) {
 
@@ -285,6 +304,14 @@ public class MoxyServerTest {
 
         connectToAndSend(7878, "Hello World");
         honeyPotServer.assertDataReceived("Hello World");
+    }
+
+    private void waitALittleBit() {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+
+        }
     }
 
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {

@@ -109,6 +109,12 @@ public class HoneyPotServer {
         }
     }
 
+    public void assertSomeDataWasReceived() {
+        synchronized (dataReceived) {
+            Assert.assertTrue("We never received any data", dataReceived.size() > 0);
+        }
+    }
+
     private class NewConnectionListener implements ConnectionAcceptorThread.Listener {
 
         public void newConnection(Socket socket) {

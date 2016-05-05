@@ -59,6 +59,24 @@ public class ReadAndSendDataThread extends Thread {
         }
     }
 
+    @Override
+    public void interrupt() {
+        close(input);
+        close(output);
+
+        super.interrupt();
+    }
+
+    private void close(Socket socket) {
+        if (socket.isConnected()) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+
+            }
+        }
+    }
+
     private void pause() {
         try {
             Thread.sleep(10L);

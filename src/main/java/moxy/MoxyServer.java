@@ -13,6 +13,7 @@
 package moxy;
 
 import moxy.impl.ConnectionAcceptorThread;
+import moxy.impl.DispatchListener;
 import moxy.impl.ExceptionHolder;
 import moxy.impl.ReadAndSendDataThread;
 import moxy.impl.ThreadKiller;
@@ -32,6 +33,7 @@ public class MoxyServer {
     private Log log = new SysOutLog();
     private AtomicBoolean started = new AtomicBoolean(false);
     private Map<Integer, ConnectTo> listenOnPortToRemote = Collections.synchronizedMap(new LinkedHashMap<>());
+    private DispatchListener dispatchListener = new DispatchListener();
 
     public RouteTo listenOn(int portToListenOn) {
         return new RouteTo() {
@@ -79,6 +81,7 @@ public class MoxyServer {
         ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread("MOXY", port, log, new ConnectionAcceptorThread.Listener() {
             public void newConnection(Socket listener) throws IOException {
                 try {
+                    dispatchListener.connectionMade(port, connectTo.socketAddress);
                     Socket routeTo = new Socket();
                     routeTo.setReuseAddress(true);
                     routeTo.connect(connectTo.socketAddress);
@@ -137,6 +140,10 @@ public class MoxyServer {
         log.debug("Removing listener on port: " + portNumber);
         stopListeningOn(portNumber);
         listenOnPortToRemote.remove(portNumber);
+    }
+
+    public void addListener(MoxyListener listener) {
+        dispatchListener.addListener(listener);
     }
 
     public interface RouteTo {

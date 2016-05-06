@@ -56,6 +56,22 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldAllowListeningForNewConnections() {
+        AssertableListener assertableListener = new AssertableListener();
+
+        moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.listenOn(9998).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.addListener(assertableListener);
+        moxyServer.start();
+
+        connectToAndSend(9999, "Hello");
+        moxyServer.stop();
+
+        assertableListener.assertConnectionWasMadeOn(9999);
+        assertableListener.assertNoConnectionWasMadeOn(9998);
+    }
+    
+    @Test
     public void shouldKillRemoteConnectionsOnShutdownEvenIfTheyAreStillWritingData() throws InterruptedException {
         moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();

@@ -10,12 +10,26 @@
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
  */
-package moxy;
+package moxy.impl;
+
+import moxy.MoxyListener;
 
 import java.net.SocketAddress;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-public abstract class MoxyListener {
+public class DispatchListener extends MoxyListener {
+    private List<MoxyListener> delegates = Collections.synchronizedList(new ArrayList<>());
+
+    public void addListener(MoxyListener listener) {
+        delegates.add(listener);
+    }
+
+    @Override
     public void connectionMade(int listenerPort, SocketAddress remoteAddress) {
-
+        for (MoxyListener delegate : delegates) {
+            delegate.connectionMade(listenerPort, remoteAddress);
+        }
     }
 }

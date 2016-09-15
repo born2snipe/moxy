@@ -29,7 +29,9 @@ public class AssertableListener extends MoxyListener {
     public void assertConnectionWasMadeOn(int port) {
         RetryableAssertion assertion = new RetryableAssertion() {
             protected void assertion() {
-                assertTrue("No connection was made on the port [" + port + "]", connectionsMade.contains(port));
+                assertFalse("No connections were made ever", connectionsMade.isEmpty());
+                assertTrue("No connection was made on the port [" + port + "], but connections were made on: " + connectionsMade,
+                        connectionsMade.contains(port));
             }
         };
         assertion.performAssertion();

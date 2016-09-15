@@ -25,7 +25,7 @@ import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static moxy.Log.Level.DEBUG;
+import static moxy.Log.Level.OFF;
 import static moxy.SocketUtil.attemptToBindTo;
 import static moxy.SocketUtil.ensurePortIsInUse;
 import static org.junit.Assert.assertFalse;
@@ -40,7 +40,7 @@ public class MoxyServerTest {
 
     @Before
     public void setUp() throws Exception {
-        log = new SysOutLog(DEBUG);
+        log = new SysOutLog(OFF);
 
         honeyPotServer = startNewHoneyPot(HONEY_POT_PORT);
 
@@ -70,7 +70,7 @@ public class MoxyServerTest {
         assertableListener.assertConnectionWasMadeOn(9999);
         assertableListener.assertNoConnectionWasMadeOn(9998);
     }
-    
+
     @Test
     public void shouldKillRemoteConnectionsOnShutdownEvenIfTheyAreStillWritingData() throws InterruptedException {
         moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);

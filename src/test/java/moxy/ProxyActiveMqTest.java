@@ -19,12 +19,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.jms.core.JmsMessagingTemplate;
 
+import static moxy.Log.Level.OFF;
 import static org.junit.Assert.assertEquals;
 
 public class ProxyActiveMqTest {
     private BrokerService broker;
     private JmsMessagingTemplate jms;
     private MoxyServer moxy;
+    private AssertableListener assertableListener;
 
     @Before
     public void setUp() throws Exception {
@@ -32,9 +34,12 @@ public class ProxyActiveMqTest {
         broker.addConnector("tcp://localhost:61616");
         broker.start();
 
+        assertableListener = new AssertableListener();
+
         moxy = new MoxyServer();
-        moxy.setLog(new SysOutLog(Log.Level.DEBUG));
+        moxy.setLog(new SysOutLog(OFF));
         moxy.listenOn(7878).andConnectTo("localhost", 61616);
+        moxy.addListener(assertableListener);
         moxy.start();
 
         jms = newJmsTemplate(7878);
@@ -75,6 +80,7 @@ public class ProxyActiveMqTest {
             }
         };
         retryable.performAssertion();
+        assertableListener.assertConnectionWasMadeOn(7878);
     }
 
     private JmsMessagingTemplate newJmsTemplate(int port) {

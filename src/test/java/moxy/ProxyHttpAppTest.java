@@ -21,12 +21,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import static moxy.Log.Level.OFF;
 import static org.junit.Assert.assertEquals;
 
 public class ProxyHttpAppTest {
 
     private MoxyServer moxy;
     private HttpApp http;
+    private AssertableListener assertableListener;
 
     @Before
     public void setUp() throws Exception {
@@ -34,9 +36,12 @@ public class ProxyHttpAppTest {
         http = new HttpApp();
         http.run("server", path);
 
+        assertableListener = new AssertableListener();
+
         moxy = new MoxyServer();
-        moxy.setLog(new SysOutLog(Log.Level.DEBUG));
-        moxy.listenOn(6565).andConnectTo("localhost", 8080);
+        moxy.setLog(new SysOutLog(OFF));
+        moxy.listenOn(6565).andConnectTo("localhost", 8081);
+        moxy.addListener(assertableListener);
         moxy.start();
     }
 
@@ -48,13 +53,14 @@ public class ProxyHttpAppTest {
     @Test
     public void canProxyGetRequests() throws Exception {
         CloseableHttpClient httpclient = HttpClients.createDefault();
-        HttpGet request = new HttpGet("http://localhost:8081/healthcheck");
+        HttpGet request = new HttpGet("http://localhost:6565/healthcheck");
 
         CloseableHttpResponse response = httpclient.execute(request);
 
         try {
             assertEquals(200, response.getStatusLine().getStatusCode());
             assertEquals("{\"deadlocks\":{\"healthy\":true}}", EntityUtils.toString(response.getEntity()));
+            assertableListener.assertConnectionWasMadeOn(6565);
         } finally {
             httpclient.close();
         }

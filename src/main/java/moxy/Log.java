@@ -37,7 +37,7 @@ public abstract class Log {
     }
 
     public void error(String message, Exception e) {
-        log(ERROR, message, Optional.of(e));
+        log(ERROR, message, Optional.ofNullable(e));
     }
 
     private void log(Level level, String message, Optional<Exception> exceptionOptional) {

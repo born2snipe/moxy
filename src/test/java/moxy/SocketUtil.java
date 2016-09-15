@@ -39,28 +39,19 @@ public class SocketUtil {
 
     public static void ensurePortIsInUse(int port) {
         try {
-            attemptToBindTo(port);
+            ensurePortIsAvailable(port);
             fail();
         } catch (Exception e) {
             assertTrue(e.getCause() instanceof BindException);
         }
     }
 
-    public static void attemptToBindTo(int port) {
-        ServerSocket ss = null;
-        try {
-            ss = new ServerSocket();
+    public static void ensurePortIsAvailable(int port) {
+        try (ServerSocket ss = new ServerSocket()) {
             ss.setReuseAddress(true);
             ss.bind(new InetSocketAddress(port));
         } catch (IOException e) {
             throw new RuntimeException(e);
-        } finally {
-            try {
-                ss.close();
-            } catch (IOException e) {
-
-            }
         }
-
     }
 }

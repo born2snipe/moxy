@@ -28,5 +28,6 @@ public class SysOutLog extends Log {
         if (exceptionOptional.isPresent()) {
             exceptionOptional.get().printStackTrace(System.out);
         }
+        System.out.flush();
     }
 }

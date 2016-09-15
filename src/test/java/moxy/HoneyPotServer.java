@@ -1,11 +1,11 @@
 /**
  * Copyright to the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at:
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software distributed under the License is
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and limitations under the License.
@@ -22,6 +22,8 @@ import java.io.OutputStream;
 import java.net.BindException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,11 +34,13 @@ public class HoneyPotServer {
     private final int port;
     private final LinkedList<String> outgoingData = new LinkedList<>();
     private final ArrayList<String> dataReceived = new ArrayList<>();
+    private final Collection<Socket> sockets = new HashSet<>();
     private ConnectionAcceptorThread connectionAcceptorThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
     private CountDownLatch portBoundCountDown = new CountDownLatch(1);
     private Log log = new SysOutLog(DEBUG);
     private ExceptionHolder bindingException = new ExceptionHolder();
+    private boolean started = false;
 
     public HoneyPotServer(int port) {
         this.port = port;
@@ -51,6 +55,7 @@ public class HoneyPotServer {
         waitForPortToBeBound();
         bindingException.reThrowAsNeeded();
         log.debug("HONEY POT: bound to port [" + port + "]");
+        started = true;
     }
 
     public void sendData(String dataToSend) {
@@ -60,9 +65,22 @@ public class HoneyPotServer {
     }
 
     public void stop() {
-        log.debug("HONEY POT: stopping...");
-        ThreadKiller.killAndWait(connectionAcceptorThread);
-        log.debug("HONEY POT: stopped");
+        if (started) {
+            log.debug("HONEY POT: stopping...");
+            ThreadKiller.killAndWait(connectionAcceptorThread);
+            sockets.forEach((socket) -> {
+                try {
+                    log.debug("HONEY POT: Closing socket: " + socket);
+                    socket.close();
+                } catch (IOException e) {
+
+                }
+            });
+
+            sockets.clear();
+            log.debug("HONEY POT: stopped");
+            started = false;
+        }
     }
 
     public void setLog(Log log) {
@@ -118,7 +136,6 @@ public class HoneyPotServer {
     private class NewConnectionListener implements ConnectionAcceptorThread.Listener {
 
         public void newConnection(Socket socket) {
-            connectionMade.set(true);
             ConsumeDataThread consumeDataThread = new ConsumeDataThread(socket, new ConsumeDataThread.Listener() {
                 public void newDataReceived(Socket socket, byte[] data) {
                     synchronized (dataReceived) {
@@ -126,8 +143,12 @@ public class HoneyPotServer {
                     }
                 }
             });
+            SendOutgoingDataThread sendOutgoingDataThread = new SendOutgoingDataThread(socket);
+
+            sockets.add(socket);
+            connectionMade.set(true);
             consumeDataThread.start();
-            new SendOutgoingDataThread(socket).start();
+            sendOutgoingDataThread.start();
         }
 
         public void boundToLocalPort(int port) {
@@ -150,7 +171,7 @@ public class HoneyPotServer {
 
         public void run() {
             try (OutputStream outputStream = socket.getOutputStream()) {
-                while (true) {
+                while (socket.isConnected()) {
                     synchronized (outgoingData) {
                         for (String data : outgoingData) {
                             outputStream.write(data.getBytes());

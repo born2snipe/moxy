@@ -58,24 +58,29 @@ public class ReadAndSendDataThread extends Thread {
         } catch (IOException e) {
             log.error("An error occurred on thread: " + getName(), e);
         } finally {
-            log.debug("Thread dieing: " + getName());
+            log.debug("Thread died: " + getName());
+            closeConnections();
         }
     }
 
     @Override
     public void interrupt() {
+        closeConnections();
+        super.interrupt();
+    }
+
+    private void closeConnections() {
         close(input);
         close(output);
-
-        super.interrupt();
     }
 
     private void close(Socket socket) {
         if (socket.isConnected()) {
             try {
                 socket.close();
+                log.info("Closed socket: " + socket);
             } catch (IOException e) {
-
+                e.printStackTrace();
             }
         }
     }

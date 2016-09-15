@@ -44,7 +44,6 @@ public class MoxyServerTest {
 
         honeyPotServer = startNewHoneyPot(HONEY_POT_PORT);
 
-
         moxyServer = new MoxyServer();
         moxyServer.setLog(log);
     }
@@ -72,6 +71,20 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldKillBothConnectionsIfTheRemoteServersConnectionWasClosed() throws InterruptedException {
+        moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.start();
+
+        AlwaysStreamingDataThread alwaysStreamingThread = new AlwaysStreamingDataThread("localhost", 9999);
+        alwaysStreamingThread.start();
+
+        honeyPotServer.stop();
+        alwaysStreamingThread.join();
+
+        alwaysStreamingThread.assertSocketClosed();
+    }
+
+    @Test
     public void shouldKillRemoteConnectionsOnShutdownEvenIfTheyAreStillWritingData() throws InterruptedException {
         moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
         moxyServer.start();
@@ -84,7 +97,7 @@ public class MoxyServerTest {
 
         honeyPotServer.assertSomeoneConnected();
         honeyPotServer.assertSomeDataWasReceived();
-        assertFalse(alwaysStreamingThread.isAlive());
+        alwaysStreamingThread.assertSocketClosed();
     }
 
     @Test

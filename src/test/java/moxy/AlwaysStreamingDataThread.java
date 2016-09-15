@@ -17,10 +17,14 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.junit.Assert.assertFalse;
 
 public class AlwaysStreamingDataThread extends Thread {
     private final InetSocketAddress address;
     private final CountDownLatch connectedToServer = new CountDownLatch(1);
+    private final AtomicBoolean connected = new AtomicBoolean(false);
 
     public AlwaysStreamingDataThread(String host, int port) {
         address = new InetSocketAddress(host, port);
@@ -42,6 +46,7 @@ public class AlwaysStreamingDataThread extends Thread {
 
             OutputStream output = socket.getOutputStream();
             while (socket.isConnected()) {
+                connected.set(true);
                 output.write(getClass().getName().getBytes());
                 output.write('\n');
                 output.flush();
@@ -52,6 +57,8 @@ public class AlwaysStreamingDataThread extends Thread {
 
         } catch (IOException e) {
 
+        } finally {
+            connected.set(false);
         }
     }
 
@@ -61,5 +68,9 @@ public class AlwaysStreamingDataThread extends Thread {
         } catch (InterruptedException e) {
 
         }
+    }
+
+    public void assertSocketClosed() {
+        assertFalse("Socket is still connected", connected.get());
     }
 }

@@ -62,7 +62,7 @@ public class MoxyServer {
             return;
         }
 
-        log.debug("Starting...");
+        log.info("Starting...");
         try {
             for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
                 startListeningOn(info.getKey(), info.getValue());
@@ -121,13 +121,13 @@ public class MoxyServer {
     }
 
     public void stop() {
-        log.debug("Stopping all port listeners...");
+        log.info("Stopping all port listeners...");
         listenOnPortToRemote.values().forEach(ConnectTo::shutdown);
         started.set(false);
     }
 
     public void stopListeningOn(int portNumber) {
-        log.debug("Stop listening on port: " + portNumber);
+        log.info("Stop listening on port: " + portNumber);
         ConnectTo connectTo = listenOnPortToRemote.get(portNumber);
         if (connectTo != null) {
             connectTo.shutdown();
@@ -137,7 +137,7 @@ public class MoxyServer {
     }
 
     public void removeListenerOn(int portNumber) {
-        log.debug("Removing listener on port: " + portNumber);
+        log.info("Removing listener on port: " + portNumber);
         stopListeningOn(portNumber);
         listenOnPortToRemote.remove(portNumber);
     }

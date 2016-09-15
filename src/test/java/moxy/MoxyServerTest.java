@@ -79,8 +79,6 @@ public class MoxyServerTest {
         AlwaysStreamingDataThread alwaysStreamingThread = new AlwaysStreamingDataThread("localhost", 9999);
         alwaysStreamingThread.start();
 
-        waitALittleBit();
-
         moxyServer.stop();
         alwaysStreamingThread.join();
 
@@ -320,14 +318,6 @@ public class MoxyServerTest {
 
         connectToAndSend(7878, "Hello World");
         honeyPotServer.assertDataReceived("Hello World");
-    }
-
-    private void waitALittleBit() {
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-
-        }
     }
 
     private void connectToMoxyAndWaitForData(int portToConnectTo, String expectedData) {

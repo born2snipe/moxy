@@ -39,7 +39,6 @@ public class AlwaysStreamingDataThread extends Thread {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);
             socket.connect(address);
-            connectedToServer.countDown();
 
             OutputStream output = socket.getOutputStream();
             while (socket.isConnected()) {
@@ -48,16 +47,17 @@ public class AlwaysStreamingDataThread extends Thread {
                 output.flush();
 
                 pause();
+                connectedToServer.countDown();
             }
 
         } catch (IOException e) {
-            e.printStackTrace(System.out);
+
         }
     }
 
     private void pause() {
         try {
-            Thread.sleep(10);
+            Thread.sleep(1);
         } catch (InterruptedException e) {
 
         }

@@ -2,7 +2,7 @@
 
 Is a simple point-to-point embeddable proxy server.
 
-Warning: Have not tested with SSL...yet
+Warning: Does not support SSL
 
 ### Example Usage
     MoxyServer moxy = new MoxyServer();

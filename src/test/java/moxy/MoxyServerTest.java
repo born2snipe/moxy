@@ -26,8 +26,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static moxy.Log.Level.OFF;
-import static moxy.SocketUtil.ensurePortIsAvailable;
-import static moxy.SocketUtil.ensurePortIsInUse;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
@@ -123,7 +121,7 @@ public class MoxyServerTest {
 
         connectToAndSend(7878, "Hello World");
 
-        ensurePortIsInUse(7878);
+        AssertPort.assertPortIsInUse(7878);
     }
 
     @Test
@@ -146,7 +144,7 @@ public class MoxyServerTest {
 
         moxyServer.removeListenerOn(7878);
 
-        ensurePortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(7878);
     }
 
     @Test
@@ -155,7 +153,7 @@ public class MoxyServerTest {
         moxyServer.removeListenerOn(7878);
         moxyServer.start();
 
-        ensurePortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(7878);
     }
 
     @Test
@@ -185,8 +183,8 @@ public class MoxyServerTest {
         moxyServer.start();
         moxyServer.stop();
 
-        ensurePortIsAvailable(7878);
-        ensurePortIsAvailable(8080);
+        AssertPort.assertPortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(8080);
     }
 
     @Test
@@ -195,7 +193,7 @@ public class MoxyServerTest {
         moxyServer.start();
         moxyServer.stop();
 
-        ensurePortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(7878);
     }
 
     @Test
@@ -247,7 +245,7 @@ public class MoxyServerTest {
         moxyServer.start();
         moxyServer.stopListeningOn(7878);
 
-        ensurePortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(7878);
     }
 
     @Test
@@ -313,8 +311,8 @@ public class MoxyServerTest {
 
         }
 
-        ensurePortIsAvailable(7878);
-        ensurePortIsAvailable(7979);
+        AssertPort.assertPortIsAvailable(7878);
+        AssertPort.assertPortIsAvailable(7979);
     }
 
     @Test

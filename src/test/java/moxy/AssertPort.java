@@ -13,20 +13,27 @@
 package moxy;
 
 import java.io.IOException;
-import java.io.OutputStream;
+import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.net.ServerSocket;
 
-public class SocketUtil {
-    public static void connectToAndSend(String ip, int portToConnectTo, String dataToSend) {
-        try (Socket socket = new Socket()) {
-            socket.setReuseAddress(true);
-            socket.setSoTimeout(1000);
-            socket.connect(new InetSocketAddress(ip, portToConnectTo));
-            OutputStream output = socket.getOutputStream();
-            output.write(dataToSend.getBytes());
-            output.flush();
-            output.close();
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+public class AssertPort {
+    public static void assertPortIsInUse(int port) {
+        try {
+            assertPortIsAvailable(port);
+            fail();
+        } catch (Exception e) {
+            assertTrue(e.getCause() instanceof BindException);
+        }
+    }
+
+    public static void assertPortIsAvailable(int port) {
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.setReuseAddress(true);
+            ss.bind(new InetSocketAddress(port));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

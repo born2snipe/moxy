@@ -14,7 +14,7 @@ package moxy.impl;
 
 public class ThreadKiller {
     public static void killAndWait(Thread thread) {
-        if (thread != null) {
+        if (thread != null && Thread.currentThread() != thread) {
             thread.interrupt();
             try {
                 thread.join();

@@ -12,17 +12,15 @@
  */
 package moxy;
 
+import moxy.impl.ConnectTo;
 import moxy.impl.ConnectionAcceptorThread;
 import moxy.impl.DispatchListener;
 import moxy.impl.ExceptionHolder;
-import moxy.impl.ReadAndSendDataThread;
-import moxy.impl.ThreadKiller;
 
 import java.io.IOException;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,7 +44,7 @@ public class MoxyServer {
             public void andConnectTo(InetSocketAddress socketAddress) {
                 assertPortIsNotAlreadySetup(portToListenOn);
 
-                ConnectTo connectTo = new ConnectTo(socketAddress);
+                ConnectTo connectTo = new ConnectTo(socketAddress, log);
                 listenOnPortToRemote.put(portToListenOn, connectTo);
 
                 if (started.get()) {
@@ -183,66 +181,5 @@ public class MoxyServer {
         }
 
         void andConnectTo(InetSocketAddress socketAddress);
-    }
-
-    private class ConnectTo {
-        private final InetSocketAddress socketAddress;
-        private ArrayList<Thread> threads = new ArrayList<>();
-        // todo - need to find a way to get these to auto cleanup on death
-        private ArrayList<RelayInfo> relayInfos = new ArrayList<>();
-
-        public ConnectTo(InetSocketAddress socketAddress) {
-            this.socketAddress = socketAddress;
-        }
-
-        public Thread associateThread(Thread thread) {
-            threads.add(thread);
-            return thread;
-        }
-
-        public void shutdown() {
-            if (threads.size() > 0) {
-                threads.forEach(ThreadKiller::killAndWait);
-                threads.clear();
-            }
-
-            for (RelayInfo relayInfo : relayInfos) {
-                relayInfo.stopRelaying();
-            }
-            relayInfos.clear();
-        }
-
-        public void startReadingAndWriting(Socket listener, Socket routeTo) {
-            RelayInfo relayInfo = new RelayInfo(listener, routeTo);
-            relayInfo.startRelaying();
-            relayInfos.add(relayInfo);
-        }
-    }
-
-    private class RelayInfo {
-        private Socket listener;
-        private Socket routeTo;
-        private ArrayList<Thread> threads = new ArrayList<>();
-
-        public RelayInfo(Socket listener, Socket routeTo) {
-            this.listener = listener;
-            this.routeTo = routeTo;
-        }
-
-        public void startRelaying() {
-            ReadAndSendDataThread listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo, log);
-            listenerToRouteTo.start();
-            ReadAndSendDataThread routeToToListener = new ReadAndSendDataThread(routeTo, listener, log);
-            routeToToListener.start();
-
-            threads.add(listenerToRouteTo);
-            threads.add(routeToToListener);
-        }
-
-        public void stopRelaying() {
-            for (Thread thread : threads) {
-                ThreadKiller.killAndWait(thread);
-            }
-        }
     }
 }

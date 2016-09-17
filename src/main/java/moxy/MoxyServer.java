@@ -28,7 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MoxyServer {
-    private Log log = new SysOutLog();
+    private Log log = Log.get(getClass());
     private AtomicBoolean started = new AtomicBoolean(false);
     private Map<Integer, ConnectTo> listenOnPortToRemote = Collections.synchronizedMap(new LinkedHashMap<>());
     private DispatchListener dispatchListener = new DispatchListener();
@@ -73,10 +73,6 @@ public class MoxyServer {
             stop();
             throw e;
         }
-    }
-
-    public void setLog(Log log) {
-        this.log = log;
     }
 
     /**

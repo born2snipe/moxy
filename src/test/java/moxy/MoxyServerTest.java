@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static moxy.Log.Level.OFF;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
@@ -33,17 +32,13 @@ public class MoxyServerTest {
     private static final int HONEY_POT_PORT = 19090;
     private MoxyServer moxyServer;
     private HoneyPotServer honeyPotServer;
-    private SysOutLog log;
     private HashSet<HoneyPotServer> honeyPots = new HashSet<>();
 
     @Before
     public void setUp() throws Exception {
-        log = new SysOutLog(OFF);
-
         honeyPotServer = startNewHoneyPot(HONEY_POT_PORT);
 
         moxyServer = new MoxyServer();
-        moxyServer.setLog(log);
     }
 
     @After
@@ -365,7 +360,6 @@ public class MoxyServerTest {
 
     private HoneyPotServer startNewHoneyPot(int port) {
         HoneyPotServer honeyPotServer = new HoneyPotServer(port);
-        honeyPotServer.setLog(log);
         honeyPotServer.start();
         honeyPots.add(honeyPotServer);
         return honeyPotServer;

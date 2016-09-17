@@ -28,8 +28,6 @@ import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static moxy.Log.Level.DEBUG;
-
 public class HoneyPotServer {
     private final int port;
     private final LinkedList<String> outgoingData = new LinkedList<>();
@@ -38,7 +36,7 @@ public class HoneyPotServer {
     private ConnectionAcceptorThread connectionAcceptorThread;
     private AtomicBoolean connectionMade = new AtomicBoolean(false);
     private CountDownLatch portBoundCountDown = new CountDownLatch(1);
-    private Log log = new SysOutLog(DEBUG);
+    private Log log = Log.get(getClass());
     private ExceptionHolder bindingException = new ExceptionHolder();
     private boolean started = false;
 
@@ -47,14 +45,14 @@ public class HoneyPotServer {
     }
 
     public void start() {
-        log.debug("HONEY POT: starting...");
+        log.debug("starting...");
         connectionAcceptorThread = new ConnectionAcceptorThread("HONEY POT", port, log, new NewConnectionListener());
         connectionAcceptorThread.start();
 
-        log.debug("HONEY POT: Waiting for port to bind...");
+        log.debug("Waiting for port to bind...");
         waitForPortToBeBound();
         bindingException.reThrowAsNeeded();
-        log.debug("HONEY POT: bound to port [" + port + "]");
+        log.debug("bound to port [" + port + "]");
         started = true;
     }
 
@@ -66,11 +64,11 @@ public class HoneyPotServer {
 
     public void stop() {
         if (started) {
-            log.debug("HONEY POT: stopping...");
+            log.debug("stopping...");
             ThreadKiller.killAndWait(connectionAcceptorThread);
             sockets.forEach((socket) -> {
                 try {
-                    log.debug("HONEY POT: Closing socket: " + socket);
+                    log.debug("Closing socket: " + socket);
                     socket.close();
                 } catch (IOException e) {
 
@@ -78,7 +76,7 @@ public class HoneyPotServer {
             });
 
             sockets.clear();
-            log.debug("HONEY POT: stopped");
+            log.debug("stopped");
             started = false;
         }
     }

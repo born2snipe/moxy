@@ -12,28 +12,48 @@
  */
 package moxy;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static moxy.Log.Level.*;
 
-public abstract class Log {
-    private final Object LOCK = new Object();
-    private Level level;
+public class Log {
+    private static final Map<String, Log> LOGGERS = Collections.synchronizedMap(new HashMap<>());
+    private static Level LEVEL = Level.OFF;
+    private static Appender APPENDER = new SysOutAppender();
+    private final String name;
 
-    public Log() {
-        this(OFF);
+    private Log(String name) {
+        this.name = name;
     }
 
-    public Log(Level level) {
-        this.level = level;
+    public synchronized static void setAppender(Appender appender) {
+        APPENDER = appender;
+    }
+
+    public synchronized static void setLevel(Level level) {
+        LEVEL = level;
+    }
+
+    public static Log get(Class clazz) {
+        return get(clazz.getName());
+    }
+
+    public static Log get(String name) {
+        if (!LOGGERS.containsKey(name)) {
+            LOGGERS.put(name, new Log(name));
+        }
+        return LOGGERS.get(name);
     }
 
     public void debug(String message) {
         log(DEBUG, message, Optional.empty());
     }
 
-    public boolean isDebug() {
-        return level == DEBUG;
+    public synchronized boolean isDebug() {
+        return LEVEL == DEBUG;
     }
 
     public void info(String message) {
@@ -49,18 +69,16 @@ public abstract class Log {
     }
 
     private void log(Level level, String message, Optional<Exception> exceptionOptional) {
-        synchronized (LOCK) {
-            if (this.level == OFF) {
+        synchronized (LEVEL) {
+            if (LEVEL == OFF) {
                 return;
             }
 
-            if (level.ordinal() >= this.level.ordinal()) {
-                reallyLogMessage(level, message, exceptionOptional);
+            if (level.ordinal() >= LEVEL.ordinal()) {
+                APPENDER.logMessage(name, level, message, exceptionOptional);
             }
         }
     }
-
-    protected abstract void reallyLogMessage(Level level, String message, Optional<Exception> exceptionOptional);
 
     enum Level {
         DEBUG,
@@ -68,5 +86,9 @@ public abstract class Log {
         WARN,
         ERROR,
         OFF
+    }
+
+    interface Appender {
+        void logMessage(String loggerName, Level level, String message, Optional<Exception> exceptionOptional);
     }
 }

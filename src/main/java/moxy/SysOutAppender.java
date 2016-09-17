@@ -14,17 +14,10 @@ package moxy;
 
 import java.util.Optional;
 
-public class SysOutLog extends Log {
-    public SysOutLog() {
-    }
-
-    public SysOutLog(Level level) {
-        super(level);
-    }
-
+public class SysOutAppender implements Log.Appender {
     @Override
-    protected void reallyLogMessage(Level level, String message, Optional<Exception> exceptionOptional) {
-        System.out.println("[" + level + "] " + message);
+    public void logMessage(String name, Log.Level level, String message, Optional<Exception> exceptionOptional) {
+        System.out.println(name + " [" + level + "] " + message);
         if (exceptionOptional.isPresent()) {
             exceptionOptional.get().printStackTrace(System.out);
         }

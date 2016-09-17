@@ -19,7 +19,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.jms.core.JmsMessagingTemplate;
 
-import static moxy.Log.Level.OFF;
 import static org.junit.Assert.assertEquals;
 
 public class ProxyActiveMqTest {
@@ -37,7 +36,6 @@ public class ProxyActiveMqTest {
         assertableListener = new AssertableListener();
 
         moxy = new MoxyServer();
-        moxy.setLog(new SysOutLog(OFF));
         moxy.listenOn(7878).andConnectTo("localhost", 61616);
         moxy.addListener(assertableListener);
         moxy.start();

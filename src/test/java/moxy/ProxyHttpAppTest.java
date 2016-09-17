@@ -21,7 +21,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static moxy.Log.Level.OFF;
 import static org.junit.Assert.assertEquals;
 
 public class ProxyHttpAppTest {
@@ -39,7 +38,6 @@ public class ProxyHttpAppTest {
         assertableListener = new AssertableListener();
 
         moxy = new MoxyServer();
-        moxy.setLog(new SysOutLog(OFF));
         moxy.listenOn(6565).andConnectTo("localhost", 8081);
         moxy.addListener(assertableListener);
         moxy.start();

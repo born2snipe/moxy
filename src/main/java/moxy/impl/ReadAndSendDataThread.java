@@ -40,10 +40,16 @@ public class ReadAndSendDataThread extends Thread {
         try (InputStream input = this.input.getInputStream(); OutputStream output = this.output.getOutputStream()) {
             while (isStillConnected() && (length = input.read(buffer)) != -1) {
                 log.info(getName() + " -- " + length + " bytes of data");
-                output.write(buffer, 0, length);
+
+                byte[] dataToSend = new byte[length];
+                System.arraycopy(buffer, 0, dataToSend, 0, length);
+
+                output.write(dataToSend);
+                sentData(dataToSend);
+
                 output.flush();
                 if (log.isDebug()) {
-                    log.debug(getName() + " -- DATA=[" + new String(buffer, 0, length) + "]");
+                    log.debug(getName() + " -- DATA=[" + new String(dataToSend) + "]");
                 }
                 pause();
             }
@@ -61,6 +67,10 @@ public class ReadAndSendDataThread extends Thread {
             log.debug("Thread died: " + getName());
             closeConnections();
         }
+    }
+
+    protected void sentData(byte[] data) {
+
     }
 
     @Override

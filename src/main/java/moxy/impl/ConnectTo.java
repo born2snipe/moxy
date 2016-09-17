@@ -13,6 +13,7 @@
 package moxy.impl;
 
 import moxy.Log;
+import moxy.MoxyListener;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -47,9 +48,9 @@ public class ConnectTo {
         relayInfos.clear();
     }
 
-    public void startReadingAndWriting(Socket listener, Socket routeTo) {
+    public void startReadingAndWriting(Socket listener, Socket routeTo, MoxyListener dispatchListener) {
         RelayInfo relayInfo = new RelayInfo(listener, routeTo);
-        relayInfo.startRelaying();
+        relayInfo.startRelaying(dispatchListener);
         relayInfos.add(relayInfo);
     }
 
@@ -63,10 +64,21 @@ public class ConnectTo {
             this.routeTo = routeTo;
         }
 
-        public void startRelaying() {
-            ReadAndSendDataThread listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo, log);
+        public void startRelaying(final MoxyListener dispatchListener) {
+            ReadAndSendDataThread listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo, log) {
+                @Override
+                protected void sentData(byte[] data) {
+                    dispatchListener.sentData(listener.getLocalPort(), routeTo.getRemoteSocketAddress(), data);
+                }
+            };
             listenerToRouteTo.start();
-            ReadAndSendDataThread routeToToListener = new ReadAndSendDataThread(routeTo, listener, log);
+
+            ReadAndSendDataThread routeToToListener = new ReadAndSendDataThread(routeTo, listener, log) {
+                @Override
+                protected void sentData(byte[] data) {
+                    dispatchListener.receivedData(listener.getLocalPort(), routeTo.getRemoteSocketAddress(), data);
+                }
+            };
             routeToToListener.start();
 
             threads.add(listenerToRouteTo);

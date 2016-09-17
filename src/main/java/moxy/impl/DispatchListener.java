@@ -32,4 +32,17 @@ public class DispatchListener extends MoxyListener {
             delegate.connectionMade(listenerPort, remoteAddress);
         }
     }
+
+    @Override
+    public void sentData(int listenPort, SocketAddress remoteAddress, byte[] data) {
+        for (MoxyListener delegate : delegates) {
+            delegate.sentData(listenPort, remoteAddress, data);
+        }
+    }
+
+    public void receivedData(int listenPort, SocketAddress remoteAddress, byte[] data) {
+        for (MoxyListener delegate : delegates) {
+            delegate.receivedData(listenPort, remoteAddress, data);
+        }
+    }
 }

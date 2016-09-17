@@ -140,7 +140,7 @@ public class MoxyServer {
                     Socket routeTo = new Socket();
                     routeTo.setReuseAddress(true);
                     routeTo.connect(connectTo.socketAddress);
-                    connectTo.startReadingAndWriting(listener, routeTo);
+                    connectTo.startReadingAndWriting(listener, routeTo, dispatchListener);
                 } catch (IOException e) {
                     log.error("Failed to connect to route server: " + connectTo.socketAddress, e);
                 }

@@ -18,4 +18,12 @@ public abstract class MoxyListener {
     public void connectionMade(int listenerPort, SocketAddress remoteAddress) {
 
     }
+
+    public void sentData(int listenPort, SocketAddress remoteAddress, byte[] data) {
+
+    }
+
+    public void receivedData(int listenPort, SocketAddress remoteAddress, byte[] data) {
+
+    }
 }

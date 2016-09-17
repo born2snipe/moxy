@@ -48,6 +48,36 @@ public class MoxyServerTest {
     }
 
     @Test
+    public void shouldAllowNotifyingWhenWeReceiveDataFromTheRemoveServer() {
+        AssertableListener assertableListener = new AssertableListener();
+
+        moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.addListener(assertableListener);
+        moxyServer.start();
+
+        honeyPotServer.sendData("World");
+        connectToMoxyAndWaitForData(9999, "World");
+
+        assertableListener.assertNoDataSent();
+        assertableListener.assertReceivedData(9999, new InetSocketAddress("localhost", HONEY_POT_PORT), "World");
+    }
+
+    @Test
+    public void shouldAllowNotifyingWhenWeSendDataToTheRemoveServer() {
+        AssertableListener assertableListener = new AssertableListener();
+
+        moxyServer.listenOn(9999).andConnectTo("localhost", HONEY_POT_PORT);
+        moxyServer.addListener(assertableListener);
+        moxyServer.start();
+
+        connectToAndSend(9999, "Hello");
+        moxyServer.stop();
+
+        assertableListener.assertNoDataReceived();
+        assertableListener.assertSentData(9999, new InetSocketAddress("localhost", HONEY_POT_PORT), "Hello");
+    }
+
+    @Test
     public void shouldAllowListeningForNewConnections() {
         AssertableListener assertableListener = new AssertableListener();
 

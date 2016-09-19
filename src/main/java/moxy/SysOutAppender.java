@@ -16,7 +16,7 @@ import java.util.Optional;
 
 public class SysOutAppender implements Log.Appender {
     @Override
-    public void logMessage(String name, Log.Level level, String message, Optional<Exception> exceptionOptional) {
+    public synchronized void logMessage(String name, Log.Level level, String message, Optional<Exception> exceptionOptional) {
         System.out.println(name + " [" + level + "] " + message);
         if (exceptionOptional.isPresent()) {
             exceptionOptional.get().printStackTrace(System.out);

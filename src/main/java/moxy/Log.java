@@ -21,20 +21,25 @@ import static moxy.Log.Level.*;
 
 public class Log {
     private static final Map<String, Log> LOGGERS = Collections.synchronizedMap(new HashMap<>());
-    private static Level LEVEL = Level.OFF;
-    private static Appender APPENDER = new SysOutAppender();
+    private static final Object LOCK = new Object();
+    private static Level CURRENT_LEVEL = Level.OFF;
+    private static Optional<Appender> APPENDER = Optional.of(new SysOutAppender());
     private final String name;
 
     private Log(String name) {
         this.name = name;
     }
 
-    public synchronized static void setAppender(Appender appender) {
-        APPENDER = appender;
+    public static void setAppender(Appender appender) {
+        synchronized (LOCK) {
+            APPENDER = Optional.ofNullable(appender);
+        }
     }
 
-    public synchronized static void setLevel(Level level) {
-        LEVEL = level;
+    public static void setLevel(Level level) {
+        synchronized (LOCK) {
+            CURRENT_LEVEL = level;
+        }
     }
 
     public static Log get(Class clazz) {
@@ -52,8 +57,8 @@ public class Log {
         log(DEBUG, message, Optional.empty());
     }
 
-    public synchronized boolean isDebug() {
-        return LEVEL == DEBUG;
+    public boolean isDebug() {
+        return isLevel(DEBUG);
     }
 
     public void info(String message) {
@@ -68,14 +73,20 @@ public class Log {
         log(ERROR, message, Optional.ofNullable(e));
     }
 
+    private boolean isLevel(Level level) {
+        synchronized (LOCK) {
+            return CURRENT_LEVEL == level;
+        }
+    }
+
     private void log(Level level, String message, Optional<Exception> exceptionOptional) {
-        synchronized (LEVEL) {
-            if (LEVEL == OFF) {
+        synchronized (LOCK) {
+            if (CURRENT_LEVEL == OFF) {
                 return;
             }
 
-            if (level.ordinal() >= LEVEL.ordinal()) {
-                APPENDER.logMessage(name, level, message, exceptionOptional);
+            if (APPENDER.isPresent() && level.ordinal() >= CURRENT_LEVEL.ordinal()) {
+                APPENDER.get().logMessage(name, level, message, exceptionOptional);
             }
         }
     }

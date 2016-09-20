@@ -22,16 +22,16 @@ import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ConnectionAcceptorThread extends Thread {
+    private static final Log LOG = Log.get(ConnectionAcceptorThread.class);
+
     private final int port;
-    private final Log log;
     private final Listener listener;
     private ServerSocket serverSocket;
     private AtomicBoolean kill = new AtomicBoolean(false);
     private AtomicBoolean closing = new AtomicBoolean(false);
 
-    public ConnectionAcceptorThread(String additionalName, int port, Log log, Listener listener) {
+    public ConnectionAcceptorThread(String additionalName, int port, Listener listener) {
         this.port = port;
-        this.log = log;
         this.listener = listener;
         setDaemon(true);
         setName(additionalName + ": AWAITING CONNECTIONS ON PORT: " + port);
@@ -48,7 +48,7 @@ public class ConnectionAcceptorThread extends Thread {
                 Socket socket = serverSocket.accept();
                 socket.setReuseAddress(true);
 
-                log.debug(getName() + " -- New Connection made: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                LOG.debug(getName() + " -- New Connection made: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
                 listener.newConnection(socket);
 
                 try {
@@ -61,7 +61,7 @@ public class ConnectionAcceptorThread extends Thread {
             listener.failedToBindToPort(port, e);
         } catch (IOException e) {
             if (!closing.get()) {
-                log.error("A problem occurred on thread: " + getName(), e);
+                LOG.error("A problem occurred on thread: " + getName(), e);
             }
         } finally {
             close();

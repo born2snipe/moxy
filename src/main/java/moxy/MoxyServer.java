@@ -13,18 +13,12 @@
 package moxy;
 
 import moxy.impl.ConnectTo;
-import moxy.impl.ConnectionAcceptorThread;
 import moxy.impl.DispatchListener;
-import moxy.impl.ExceptionHolder;
 
-import java.io.IOException;
-import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MoxyServer {
@@ -44,11 +38,11 @@ public class MoxyServer {
             public void andConnectTo(InetSocketAddress socketAddress) {
                 assertPortIsNotAlreadySetup(portToListenOn);
 
-                ConnectTo connectTo = new ConnectTo(socketAddress, log);
+                ConnectTo connectTo = new ConnectTo(portToListenOn, socketAddress, dispatchListener);
                 listenOnPortToRemote.put(portToListenOn, connectTo);
 
                 if (started.get()) {
-                    startListeningOn(portToListenOn, connectTo);
+                    connectTo.startListenOn();
                 }
             }
         };
@@ -66,7 +60,7 @@ public class MoxyServer {
         log.info("Starting...");
         try {
             for (Map.Entry<Integer, ConnectTo> info : listenOnPortToRemote.entrySet()) {
-                startListeningOn(info.getKey(), info.getValue());
+                info.getValue().startListenOn();
             }
             started.set(true);
         } catch (RuntimeException e) {
@@ -127,48 +121,6 @@ public class MoxyServer {
         if (listenOnPortToRemote.containsKey(portToListenOn)) {
             throw new IllegalArgumentException("There can only be one route for a single port number. It appears port number [" + portToListenOn + "] is already setup.");
         }
-    }
-
-    private void startListeningOn(Integer port, final ConnectTo connectTo) {
-        final ExceptionHolder exceptionHolder = new ExceptionHolder();
-        final CountDownLatch portBindingLatch = new CountDownLatch(1);
-        log.debug("Setup listening route: localhost:" + port + " -> " + connectTo.socketAddress);
-        ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread("MOXY", port, log, new ConnectionAcceptorThread.Listener() {
-            public void newConnection(Socket listener) throws IOException {
-                try {
-                    dispatchListener.connectionMade(port, connectTo.socketAddress);
-                    Socket routeTo = new Socket();
-                    routeTo.setReuseAddress(true);
-                    routeTo.connect(connectTo.socketAddress);
-                    connectTo.startReadingAndWriting(listener, routeTo, dispatchListener);
-                } catch (IOException e) {
-                    log.error("Failed to connect to route server: " + connectTo.socketAddress, e);
-                }
-            }
-
-            public void boundToLocalPort(int port) {
-                log.debug("Port [" + port + "] bound!");
-                portBindingLatch.countDown();
-            }
-
-            public void failedToBindToPort(int port, BindException exception) {
-                log.debug("Port [" + port + "] failed to bind!");
-                exceptionHolder.holdOnTo(new IllegalStateException("Failed to bind to port [" + port + "]", exception));
-                portBindingLatch.countDown();
-            }
-        });
-
-        connectTo.associateThread(connectionAcceptorThread).start();
-
-        try {
-            log.debug("Waiting for port [" + port + "] to bind...");
-            portBindingLatch.await();
-
-        } catch (InterruptedException e) {
-
-        }
-
-        exceptionHolder.reThrowAsNeeded();
     }
 
     public interface RouteTo {

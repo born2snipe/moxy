@@ -87,7 +87,6 @@ public class MoxyServerTest {
         moxyServer.start();
 
         connectToAndSend(9999, "Hello");
-        moxyServer.stop();
 
         assertableListener.assertConnectionWasMadeOn(9999);
         assertableListener.assertNoConnectionWasMadeOn(9998);

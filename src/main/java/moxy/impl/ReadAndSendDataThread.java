@@ -21,14 +21,13 @@ import java.net.Socket;
 import java.net.SocketException;
 
 public class ReadAndSendDataThread extends Thread {
+    private static final Log LOG = Log.get(ReadAndSendDataThread.class);
     private final Socket input;
     private final Socket output;
-    private final Log log;
 
-    public ReadAndSendDataThread(Socket input, Socket output, Log log) {
+    public ReadAndSendDataThread(Socket input, Socket output) {
         this.input = input;
         this.output = output;
-        this.log = log;
         setDaemon(true);
         setName("READ FROM: " + input + ", SEND TO: " + output);
     }
@@ -39,7 +38,7 @@ public class ReadAndSendDataThread extends Thread {
 
         try (InputStream input = this.input.getInputStream(); OutputStream output = this.output.getOutputStream()) {
             while (isStillConnected() && (length = input.read(buffer)) != -1) {
-                log.info(getName() + " -- " + length + " bytes of data");
+                LOG.info(getName() + " -- " + length + " bytes of data");
 
                 byte[] dataToSend = new byte[length];
                 System.arraycopy(buffer, 0, dataToSend, 0, length);
@@ -48,23 +47,23 @@ public class ReadAndSendDataThread extends Thread {
                 sentData(dataToSend);
 
                 output.flush();
-                if (log.isDebug()) {
-                    log.debug(getName() + " -- DATA=[" + new String(dataToSend) + "]");
+                if (LOG.isDebug()) {
+                    LOG.debug(getName() + " -- DATA=[" + new String(dataToSend) + "]");
                 }
                 pause();
             }
         } catch (SocketException e) {
             if (this.input.isClosed()) {
-                log.debug("READ FROM: Connection was closed: " + input);
+                LOG.debug("READ FROM: Connection was closed: " + input);
             } else if (this.output.isClosed()) {
-                log.debug("SEND TO: Connection was closed: " + output);
+                LOG.debug("SEND TO: Connection was closed: " + output);
             } else {
-                log.error("An error occurred on thread: " + getName(), e);
+                LOG.error("An error occurred on thread: " + getName(), e);
             }
         } catch (IOException e) {
-            log.error("An error occurred on thread: " + getName(), e);
+            LOG.error("An error occurred on thread: " + getName(), e);
         } finally {
-            log.debug("Thread died: " + getName());
+            LOG.debug("Thread died: " + getName());
             closeConnections();
         }
     }
@@ -88,7 +87,7 @@ public class ReadAndSendDataThread extends Thread {
         if (socket.isConnected()) {
             try {
                 socket.close();
-                log.info("Closed socket: " + socket);
+                LOG.info("Closed socket: " + socket);
             } catch (IOException e) {
                 e.printStackTrace();
             }

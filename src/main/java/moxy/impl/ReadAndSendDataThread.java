@@ -72,6 +72,10 @@ public class ReadAndSendDataThread extends Thread {
 
     }
 
+    protected void threadDied() {
+
+    }
+
     @Override
     public void interrupt() {
         closeConnections();

@@ -20,16 +20,17 @@ import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 
 public class ConnectTo {
     private static final Log LOG = Log.get(ConnectTo.class);
-    public final InetSocketAddress socketAddress;
+    private final InetSocketAddress socketAddress;
     private final int portToListenOn;
-    private ArrayList<Thread> threads = new ArrayList<>();
     // todo - need to find a way to get these to auto cleanup on death
     private ArrayList<RelayInfo> relayInfos = new ArrayList<>();
     private MoxyListener moxyListener;
+    private Optional<Thread> connectionAcceptorThread = Optional.empty();
 
     public ConnectTo(int portToListenOn, InetSocketAddress socketAddress, MoxyListener moxyListener) {
         this.portToListenOn = portToListenOn;
@@ -38,22 +39,20 @@ public class ConnectTo {
     }
 
     public void shutdown() {
-        if (threads.size() > 0) {
-            threads.forEach(ThreadKiller::killAndWait);
-            threads.clear();
+        if (connectionAcceptorThread.isPresent()) {
+            ThreadKiller.killAndWait(connectionAcceptorThread.get());
         }
 
-        for (RelayInfo relayInfo : relayInfos) {
-            relayInfo.stopRelaying();
-        }
+        relayInfos.forEach(RelayInfo::stopRelaying);
         relayInfos.clear();
     }
 
     public void startListenOn() {
         final ExceptionHolder exceptionHolder = new ExceptionHolder();
         final CountDownLatch portBindingLatch = new CountDownLatch(1);
+
         LOG.debug("Setup listening route: localhost:" + portToListenOn + " -> " + socketAddress);
-        ConnectionAcceptorThread connectionAcceptorThread = new ConnectionAcceptorThread("MOXY", portToListenOn, new ConnectionAcceptorThread.Listener() {
+        Thread thread = new ConnectionAcceptorThread("MOXY", portToListenOn, new ConnectionAcceptorThread.Listener() {
             public void newConnection(Socket listener) throws IOException {
                 try {
                     moxyListener.connectionMade(portToListenOn, socketAddress);
@@ -77,13 +76,12 @@ public class ConnectTo {
                 portBindingLatch.countDown();
             }
         });
-
-        associateThread(connectionAcceptorThread).start();
+        thread.start();
+        connectionAcceptorThread = Optional.of(thread);
 
         try {
             LOG.debug("Waiting for port [" + portToListenOn + "] to bind...");
             portBindingLatch.await();
-
         } catch (InterruptedException e) {
 
         }
@@ -97,8 +95,4 @@ public class ConnectTo {
         relayInfos.add(relayInfo);
     }
 
-    private Thread associateThread(Thread thread) {
-        threads.add(thread);
-        return thread;
-    }
 }

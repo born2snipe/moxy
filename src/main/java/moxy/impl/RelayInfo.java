@@ -15,12 +15,12 @@ package moxy.impl;
 import moxy.MoxyListener;
 
 import java.net.Socket;
-import java.util.ArrayList;
 
 public class RelayInfo {
     private Socket listener;
     private Socket routeTo;
-    private ArrayList<Thread> threads = new ArrayList<>();
+    private ReadAndSendDataThread listenerToRouteTo;
+    private ReadAndSendDataThread routeToToListener;
 
     public RelayInfo(Socket listener, Socket routeTo) {
         this.listener = listener;
@@ -28,29 +28,32 @@ public class RelayInfo {
     }
 
     public void startRelaying(final MoxyListener dispatchListener) {
-        ReadAndSendDataThread listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo) {
-            @Override
+        listenerToRouteTo = new ReadAndSendDataThread(listener, routeTo) {
             protected void sentData(byte[] data) {
                 dispatchListener.sentData(listener.getLocalPort(), routeTo.getRemoteSocketAddress(), data);
             }
-        };
-        listenerToRouteTo.start();
 
-        ReadAndSendDataThread routeToToListener = new ReadAndSendDataThread(routeTo, listener) {
-            @Override
+            protected void threadDied() {
+                stopRelaying();
+            }
+        };
+
+        routeToToListener = new ReadAndSendDataThread(routeTo, listener) {
             protected void sentData(byte[] data) {
                 dispatchListener.receivedData(listener.getLocalPort(), routeTo.getRemoteSocketAddress(), data);
             }
-        };
-        routeToToListener.start();
 
-        threads.add(listenerToRouteTo);
-        threads.add(routeToToListener);
+            protected void threadDied() {
+                stopRelaying();
+            }
+        };
+
+        listenerToRouteTo.start();
+        routeToToListener.start();
     }
 
     public void stopRelaying() {
-        for (Thread thread : threads) {
-            ThreadKiller.killAndWait(thread);
-        }
+        ThreadKiller.killAndWait(listenerToRouteTo);
+        ThreadKiller.killAndWait(routeToToListener);
     }
 }
